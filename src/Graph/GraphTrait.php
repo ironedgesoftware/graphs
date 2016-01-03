@@ -12,15 +12,18 @@ declare(strict_types=1);
 
 namespace IronEdge\Component\Graphs\Graph;
 
+use IronEdge\Component\CommonUtils\Options\OptionsTrait;
 use IronEdge\Component\Graphs\Exception\NodeDoesNotExistException;
 use IronEdge\Component\Graphs\Exception\ValidationException;
-use IronEdge\Component\Graphs\Node\NodeTrait;
+use IronEdge\Component\Graphs\Node\NodeInterface;
 
 /**
  * @author Gustavo Falco <comfortablynumb84@gmail.com>
  */
 trait GraphTrait
 {
+    use OptionsTrait;
+
     /**
      * Field _id.
      *
@@ -34,13 +37,6 @@ trait GraphTrait
      * @var array
      */
     private $_nodes = [];
-
-    /**
-     * Field _options.
-     *
-     * @var array
-     */
-    private $_options = [];
 
 
 
@@ -59,9 +55,9 @@ trait GraphTrait
      *
      * @param string $id - id.
      *
-     * @return self
+     * @return GraphInterface
      */
-    public function setId(string $id): self
+    public function setId(string $id): GraphInterface
     {
         $this->_id = $id;
 
@@ -83,9 +79,9 @@ trait GraphTrait
      *
      * @param array $nodes - nodes.
      *
-     * @return self
+     * @return GraphInterface
      */
-    public function setNodes(array $nodes): self
+    public function setNodes(array $nodes): GraphInterface
     {
         $this->_nodes = [];
 
@@ -99,11 +95,11 @@ trait GraphTrait
     /**
      * Adds a node to this graph.
      *
-     * @param NodeTrait $node - Node.
+     * @param NodeInterface $node - Node.
      *
-     * @return self
+     * @return GraphInterface
      */
-    public function addNode(NodeTrait $node): self
+    public function addNode(NodeInterface $node): GraphInterface
     {
         $this->_nodes[$node->getId()] = $node;
 
@@ -117,9 +113,9 @@ trait GraphTrait
      *
      * @throws NodeDoesNotExistException
      *
-     * @return NodeTrait
+     * @return NodeInterface
      */
-    public function getNode(string $id): NodeTrait
+    public function getNode(string $id): NodeInterface
     {
         if (!$this->hasNode($id)) {
             throw NodeDoesNotExistException::create($id);
@@ -141,27 +137,13 @@ trait GraphTrait
     }
 
     /**
-     * Returns the value of field _options.
+     * Returns how many nodes does this graph have.
      *
-     * @return array
+     * @return int
      */
-    public function getOptions(): array
+    public function countNodes(): int
     {
-        return $this->_options;
-    }
-
-    /**
-     * Sets the value of field options.
-     *
-     * @param array $options - options.
-     *
-     * @return self
-     */
-    public function setOptions($options): self
-    {
-        $this->_options = $options;
-
-        return $this;
+        return count($this->_nodes);
     }
 
     /**
@@ -172,11 +154,11 @@ trait GraphTrait
      *
      * @throws ValidationException
      *
-     * @return self
+     * @return GraphInterface
      */
-    public function initialize(array $data, array $options = []): self
+    public function initialize(array $data, array $options = []): GraphInterface
     {
-        if (!isset($data['id']) || !is_string($data['id']) || $data['id']) {
+        if (!isset($data['id']) || !is_string($data['id']) || $data['id'] === '') {
             throw ValidationException::create('Field "id" must be a non-empty string.');
         }
 
@@ -217,7 +199,7 @@ trait GraphTrait
                     foreach ($nodeData['childrenIds'] as $nodeId) {
                         if (!is_string($nodeId) || $nodeId === '') {
                             throw ValidationException::create(
-                                'Each element of field "childrenIds" must be a non-empty string'
+                                'Each element of field "childrenIds" must be a non-empty string.'
                             );
                         }
 
@@ -226,6 +208,8 @@ trait GraphTrait
                 }
             }
         }
+
+        return $this;
     }
 
     /**
@@ -236,13 +220,13 @@ trait GraphTrait
      *
      * @throws ValidationException
      *
-     * @return NodeTrait
+     * @return NodeInterface
      */
-    public function createNode(array $data, array $options = []): NodeTrait
+    public function createNode(array $data, array $options = []): NodeInterface
     {
         $node = $this->createNodeInstance($data, $options);
 
-        if (!isset($data['id']) || !is_string($data['id']) || $data['id']) {
+        if (!isset($data['id']) || !is_string($data['id']) || $data['id'] === '') {
             throw ValidationException::create('Field "id" must be a non-empty string.');
         }
 
@@ -257,7 +241,7 @@ trait GraphTrait
      * @param array $data    - Data.
      * @param array $options - Options.
      *
-     * @return NodeTrait
+     * @return NodeInterface
      */
-    public abstract function createNodeInstance(array $data, array $options = []): NodeTrait;
+    public abstract function createNodeInstance(array $data, array $options = []): NodeInterface;
 }

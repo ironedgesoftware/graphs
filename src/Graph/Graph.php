@@ -11,14 +11,15 @@ declare(strict_types=1);
  */
 
 namespace IronEdge\Component\Graphs\Graph;
+
 use IronEdge\Component\Graphs\Node\Node;
-use IronEdge\Component\Graphs\Node\NodeTrait;
+use IronEdge\Component\Graphs\Node\NodeInterface;
 
 
 /**
  * @author Gustavo Falco <comfortablynumb84@gmail.com>
  */
-class Graph
+class Graph implements GraphInterface
 {
     use GraphTrait;
 
@@ -29,11 +30,21 @@ class Graph
      * @param array $data    - Data.
      * @param array $options - Options.
      *
-     * @return NodeTrait
+     * @return NodeInterface
      */
-    public function createNodeInstance(array $data, array $options = []): NodeTrait
+    public function createNodeInstance(array $data, array $options = []): NodeInterface
     {
         return new Node();
+    }
+
+    /**
+     * Default options.
+     *
+     * @return array
+     */
+    public function getDefaultOptions(): array
+    {
+        return [];
     }
 
 

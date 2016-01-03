@@ -12,11 +12,15 @@ declare(strict_types=1);
 
 namespace IronEdge\Component\Graphs\Node;
 
+use IronEdge\Component\CommonUtils\Options\OptionsTrait;
+
 /**
  * @author Gustavo Falco <comfortablynumb84@gmail.com>
  */
 trait NodeTrait
 {
+    use OptionsTrait;
+
     /**
      * Field _id.
      *
@@ -62,9 +66,9 @@ trait NodeTrait
      *
      * @param string $id - id.
      *
-     * @return self
+     * @return NodeInterface
      */
-    public function setId(string $id): self
+    public function setId(string $id): NodeInterface
     {
         $this->_id = $id;
 
@@ -74,9 +78,9 @@ trait NodeTrait
     /**
      * Returns the value of field _parent.
      *
-     * @return self
+     * @return NodeInterface
      */
-    public function getParent(): self
+    public function getParent(): NodeInterface
     {
         return $this->_parent;
     }
@@ -84,11 +88,11 @@ trait NodeTrait
     /**
      * Sets the value of field parent.
      *
-     * @param NodeTrait $parent - parent.
+     * @param NodeInterface $parent - parent.
      *
-     * @return self
+     * @return NodeInterface
      */
-    public function setParent(NodeTrait $parent): self
+    public function setParent(NodeInterface $parent): NodeInterface
     {
         $this->_parent = $parent;
 
@@ -110,9 +114,9 @@ trait NodeTrait
      *
      * @param array $children - children.
      *
-     * @return self
+     * @return NodeInterface
      */
-    public function setChildren(array $children): self
+    public function setChildren(array $children): NodeInterface
     {
         $this->_children = [];
 
@@ -126,37 +130,13 @@ trait NodeTrait
     /**
      * Adds a child to this node.
      *
-     * @param NodeTrait $child - Child.
+     * @param NodeInterface $child - Child.
      *
-     * @return self
+     * @return NodeInterface
      */
-    public function addChild(NodeTrait $child): self
+    public function addChild(NodeInterface $child): NodeInterface
     {
         $this->_children[$child->getId()] = $child;
-
-        return $this;
-    }
-
-    /**
-     * Returns the value of field _options.
-     *
-     * @return array
-     */
-    public function getOptions(): array
-    {
-        return $this->_options;
-    }
-
-    /**
-     * Sets the value of field options.
-     *
-     * @param array $options - options.
-     *
-     * @return self
-     */
-    public function setOptions($options): self
-    {
-        $this->_options = $options;
 
         return $this;
     }

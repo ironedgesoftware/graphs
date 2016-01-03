@@ -10,11 +10,25 @@
 
 namespace IronEdge\Component\Graphs\Node;
 
+use IronEdge\Component\CommonUtils\Options\OptionsInterface;
+
 
 /**
  * @author Gustavo Falco <comfortablynumb84@gmail.com>
  */
-class Node
+class Node implements NodeInterface, OptionsInterface
 {
     use NodeTrait;
+
+    /**
+     * Default options.
+     *
+     * @return array
+     */
+    public function getDefaultOptions(): array
+    {
+        return [];
+    }
+
+
 }
