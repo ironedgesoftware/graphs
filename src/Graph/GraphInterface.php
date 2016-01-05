@@ -19,24 +19,8 @@ use IronEdge\Component\Graphs\Node\NodeInterface;
 /**
  * @author Gustavo Falco <comfortablynumb84@gmail.com>
  */
-interface GraphInterface
+interface GraphInterface extends NodeInterface
 {
-    /**
-     * Returns the value of field _id.
-     *
-     * @return string
-     */
-    public function getId(): string;
-
-    /**
-     * Sets the value of field id.
-     *
-     * @param string $id - id.
-     *
-     * @return GraphInterface
-     */
-    public function setId(string $id): GraphInterface;
-
     /**
      * Returns the value of field _nodes.
      *
@@ -90,18 +74,6 @@ interface GraphInterface
     public function countNodes(): int;
 
     /**
-     * Initializes the graph with an array of data.
-     *
-     * @param array $data    - Data.
-     * @param array $options - Options.
-     *
-     * @throws ValidationException
-     *
-     * @return GraphInterface
-     */
-    public function initialize(array $data, array $options = []): GraphInterface;
-
-    /**
      * Creates a node.
      *
      * @param array $data    - Data.
@@ -112,4 +84,16 @@ interface GraphInterface
      * @return NodeInterface
      */
     public function createNode(array $data, array $options = []): NodeInterface;
+
+    /**
+     * Initializes the node.
+     *
+     * @param array $data    - Data.
+     * @param array $options - Initialization options.
+     *
+     * @throws ValidationException
+     *
+     * @return NodeInterface
+     */
+    public function initialize(array $data, array $options = []): NodeInterface;
 }

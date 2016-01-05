@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 /*
- * This file is part of the frenzy-framework package.
+ * This file is part of the graphs package.
  *
  * (c) Gustavo Falco <comfortablynumb84@gmail.com>
  *
@@ -10,7 +10,7 @@ declare(strict_types=1);
  * file that was distributed with this source code.
  */
 
-namespace IronEdge\Component\Graphs\Test\Unit\Graph;
+namespace IronEdge\Component\Graphs\Test\Unit;
 
 
 /**

@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 /*
- * This file is part of the frenzy-framework package.
+ * This file is part of the graphs package.
  *
  * (c) Gustavo Falco <comfortablynumb84@gmail.com>
  *
@@ -16,6 +16,7 @@ use IronEdge\Component\Graphs\Exception\NodeDoesNotExistException;
 use IronEdge\Component\Graphs\Exception\ValidationException;
 use IronEdge\Component\Graphs\Graph\Graph;
 use IronEdge\Component\Graphs\Node\Node;
+use IronEdge\Component\Graphs\Test\Unit\AbstractTestCase;
 
 
 /**
@@ -29,9 +30,7 @@ class GraphTest extends AbstractTestCase
      */
     public function test_initialize_ifIdIsInvalidThenThrowException(array $data)
     {
-        $graph = $this->createGraphInstance();
-
-        $graph->initialize($data);
+        $graph = $this->createGraphInstance($data);
     }
 
     /**
@@ -48,37 +47,26 @@ class GraphTest extends AbstractTestCase
 
         $this->setExpectedExceptionRegExp($expectedException, $expectedExceptionRegex);
 
-        $graph = $this->createGraphInstance();
-
-        $graph->initialize($data);
+        $graph = $this->createGraphInstance($data);
     }
 
     public function test_initialize_initializeTheGraph()
     {
-        $graph = $this->createGraphInstance();
-        $options = [
-            'myOption'      => 'myOptionValue'
-        ];
-
-        $graph->initialize(
-            [
-                'id'            => 'myGraph',
-                'nodes'         => [
-                    [
-                        'id'        => 'node1'
-                    ],
-                    [
-                        'id'        => 'node2',
-                        'parentId'  => 'node1'
-                    ]
+        $graph = $this->createGraphInstance([
+            'id'            => 'myGraph',
+            'nodes'         => [
+                [
+                    'id'        => 'node1'
+                ],
+                [
+                    'id'        => 'node2',
+                    'parentId'  => 'node1'
                 ]
-            ],
-            $options
-        );
+            ]
+        ]);
 
         $this->assertEquals(2, $graph->countNodes());
         $this->assertEquals('myGraph', $graph->getId());
-        $this->assertEquals($options, $graph->getOptions());
 
         $nodes = $graph->getNodes();
 
@@ -88,19 +76,18 @@ class GraphTest extends AbstractTestCase
 
     public function test_setNodes_setsGraphNodes()
     {
-        $graph = $this->createGraphInstance();
+        $graph = $this->createGraphInstance(['id' => 'graph1']);
 
-        $node = new Node();
-        $node->setId('node1');
+        $node = new Node(['id' => 'node1']);
+        $node2 = new Node(['id' => 'node2']);
 
-        $node2 = new Node();
-        $node2->setId('node2');
         $node2->setParent($node);
 
         $graph->setNodes([$node, $node2]);
 
         $nodes = $graph->getNodes();
 
+        $this->assertEquals('graph1', $graph->getId());
         $this->assertEquals('node1', $nodes['node1']->getId());
         $this->assertEquals('node2', $nodes['node2']->getId());
     }
@@ -196,8 +183,8 @@ class GraphTest extends AbstractTestCase
      *
      * @return Graph
      */
-    protected function createGraphInstance(array $data = [], array $options = []): Graph
+    protected function createGraphInstance(array $data = []): Graph
     {
-        return new Graph($data, $options);
+        return new Graph($data);
     }
 }

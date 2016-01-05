@@ -11,6 +11,8 @@
 namespace IronEdge\Component\Graphs\Node;
 
 
+use IronEdge\Component\CommonUtils\Data\Data;
+
 interface NodeInterface
 {
     /**
@@ -28,6 +30,69 @@ interface NodeInterface
      * @return NodeInterface
      */
     public function setId(string $id): NodeInterface;
+
+    /**
+     * Returns the value of field _name.
+     *
+     * @return string
+     */
+    public function getName(): string;
+
+    /**
+     * Sets the value of field name.
+     *
+     * @param string $name - name.
+     *
+     * @return $this
+     */
+    public function setName(string $name);
+
+    /**
+     * Returns the value of field _metadata.
+     *
+     * @return Data
+     */
+    public function getMetadata(): Data;
+
+    /**
+     * Sets the value of field metadata.
+     *
+     * @param array $metadata - metadata.
+     *
+     * @return NodeInterface
+     */
+    public function setMetadata(array $metadata);
+
+    /**
+     * Sets a metadata attribute.
+     *
+     * @param string $attr    - Attribute.
+     * @param mixed  $value   - Value.
+     * @param array  $options - Options.
+     *
+     * @return $this
+     */
+    public function setMetadataAttr(string $attr, $value, array $options = []);
+
+    /**
+     * Returns a metadata attribute.
+     *
+     * @param string $attr         - Attribute.
+     * @param mixed  $defaultValue - Default value.
+     * @param array  $options      - Options.
+     *
+     * @return mixed
+     */
+    public function getMetadataAttr(string $attr, $defaultValue = null, array $options = []);
+
+    /**
+     * Returns true if metadata has attribute $attr, or false otherwise.
+     *
+     * @param string $attr - Attribute.
+     *
+     * @return bool
+     */
+    public function hasMetadataAttr(string $attr): bool;
 
     /**
      * Returns the value of field _parent.
@@ -69,4 +134,32 @@ interface NodeInterface
      * @return NodeInterface
      */
     public function addChild(NodeInterface $child): NodeInterface;
+
+    /**
+     * Returns true if this node supports the following child.
+     *
+     * @param NodeInterface $child - Child node.
+     *
+     * @return bool
+     */
+    public function supportsChild(NodeInterface $child): bool;
+
+    /**
+     * Returns true if this node supports the following parent.
+     *
+     * @param NodeInterface $parent - Parent node.
+     *
+     * @return bool
+     */
+    public function supportsParent(NodeInterface $parent): bool;
+
+    /**
+     * Initializes the node.
+     *
+     * @param array $data    - Node's data.
+     * @param array $options - Options.
+     *
+     * @return NodeInterface
+     */
+    public function initialize(array $data, array $options = []);
 }
