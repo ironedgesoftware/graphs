@@ -127,7 +127,7 @@ class Node implements NodeInterface
     public function getMetadata(): Data
     {
         if ($this->_metadata === null) {
-            $this->_metadata = new Data();
+            $this->_metadata = new Data($this->getDefaultMetadata());
         }
 
         return $this->_metadata;
@@ -138,7 +138,7 @@ class Node implements NodeInterface
      *
      * @param array $metadata - metadata.
      *
-     * @return NodeTrait
+     * @return NodeInterface
      */
     public function setMetadata(array $metadata)
     {
@@ -326,5 +326,15 @@ class Node implements NodeInterface
     public function supportsParent(NodeInterface $parent): bool
     {
         return true;
+    }
+
+    /**
+     * Returns default metadata.
+     *
+     * @return array
+     */
+    public function getDefaultMetadata()
+    {
+        return [];
     }
 }
