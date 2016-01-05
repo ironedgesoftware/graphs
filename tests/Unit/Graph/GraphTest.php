@@ -47,7 +47,7 @@ class GraphTest extends AbstractTestCase
 
         $this->setExpectedExceptionRegExp($expectedException, $expectedExceptionRegex);
 
-        $graph = $this->createGraphInstance($data);
+        $this->createGraphInstance($data);
     }
 
     public function test_initialize_initializeTheGraph()
@@ -72,6 +72,8 @@ class GraphTest extends AbstractTestCase
 
         $this->assertEquals('node1', $nodes['node1']->getId());
         $this->assertEquals('node2', $nodes['node2']->getId());
+        $this->assertCount(1, $nodes['node1']->getChildren());
+        $this->assertEquals('node2', $nodes['node1']->getChild('node2')->getId());
     }
 
     public function test_setNodes_setsGraphNodes()

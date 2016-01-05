@@ -11,7 +11,9 @@
 namespace IronEdge\Component\Graphs\Node;
 
 use IronEdge\Component\CommonUtils\Data\Data;
+use IronEdge\Component\Graphs\Exception\ChildDoesNotExistException;
 use IronEdge\Component\Graphs\Exception\ChildTypeNotSupportedException;
+use IronEdge\Component\Graphs\Exception\NodeDoesNotExistException;
 use IronEdge\Component\Graphs\Exception\ParentTypeNotSupportedException;
 use IronEdge\Component\Graphs\Exception\ValidationException;
 
@@ -127,7 +129,9 @@ class Node implements NodeInterface
     public function getMetadata(): Data
     {
         if ($this->_metadata === null) {
-            $this->_metadata = new Data($this->getDefaultMetadata());
+            $this->_metadata = new Data();
+
+            $this->setMetadata([]);
         }
 
         return $this->_metadata;
@@ -142,7 +146,24 @@ class Node implements NodeInterface
      */
     public function setMetadata(array $metadata)
     {
-        $this->getMetadata()->setData($metadata);
+        $this->getMetadata()->setData(
+            array_replace_recursive(
+                $this->getDefaultMetadata(),
+                $metadata
+            )
+        );
+
+        return $this;
+    }
+
+    /**
+     * Resets the metadata.
+     *
+     * @return $this
+     */
+    public function resetMetadata()
+    {
+        $this->setMetadata([]);
 
         return $this;
     }
@@ -192,9 +213,9 @@ class Node implements NodeInterface
     /**
      * Returns the value of field _parent.
      *
-     * @return NodeInterface
+     * @return NodeInterface|null
      */
-    public function getParent(): NodeInterface
+    public function getParent()
     {
         return $this->_parent;
     }
@@ -202,19 +223,24 @@ class Node implements NodeInterface
     /**
      * Sets the value of field parent.
      *
-     * @param NodeInterface $parent - parent.
+     * @param NodeInterface $parent          - Parent.
+     * @param bool          $setParentsChild - Set parent's child.
      *
      * @throws ParentTypeNotSupportedException
      *
      * @return NodeInterface
      */
-    public function setParent(NodeInterface $parent): NodeInterface
+    public function setParent(NodeInterface $parent, $setParentsChild = true): NodeInterface
     {
         if (!$this->supportsParent($parent)) {
             throw ParentTypeNotSupportedException::create($this, $parent);
         }
 
         $this->_parent = $parent;
+
+        if ($setParentsChild) {
+            $parent->addChild($this, false);
+        }
 
         return $this;
     }
@@ -250,13 +276,14 @@ class Node implements NodeInterface
     /**
      * Adds a child to this node.
      *
-     * @param NodeInterface $child - Child.
+     * @param NodeInterface $child          - Child.
+     * @param bool          $setChildParent - Set child's parent.
      *
      * @throws ChildTypeNotSupportedException
      *
      * @return NodeInterface
      */
-    public function addChild(NodeInterface $child): NodeInterface
+    public function addChild(NodeInterface $child, $setParent = true): NodeInterface
     {
         if (!$this->supportsChild($child)) {
             throw ChildTypeNotSupportedException::create($this, $child);
@@ -264,7 +291,41 @@ class Node implements NodeInterface
 
         $this->_children[$child->getId()] = $child;
 
+        if ($setParent) {
+            $child->setParent($this, false);
+        }
+
         return $this;
+    }
+
+    /**
+     * Returns a child by ID.
+     *
+     * @param string $id - Node ID.
+     *
+     * @throws ChildDoesNotExistException
+     *
+     * @return NodeInterface
+     */
+    public function getChild(string $id): NodeInterface
+    {
+        if (!$this->hasChild($id)) {
+            throw ChildDoesNotExistException::create($this->getId(), $id);
+        }
+
+        return $this->_children[$id];
+    }
+
+    /**
+     * Returns true if this node has a child with ID $id, or false otherwise.
+     *
+     * @param string $id - Node ID.
+     *
+     * @return bool
+     */
+    public function hasChild(string $id): bool
+    {
+        return isset($this->_children[$id]);
     }
 
     /**
@@ -337,4 +398,33 @@ class Node implements NodeInterface
     {
         return [];
     }
+
+    /**
+     * Returns an array representation of this node.
+     *
+     * @param array $options - Options.
+     *
+     * @return array
+     */
+    public function toArray(array $options = [])
+    {
+        $childrenIds = [];
+
+        /** @var NodeInterface $child */
+        foreach ($this->getChildren() as $child) {
+            $childrenIds[] = $child->getId();
+        }
+
+        return [
+            'id'                => $this->getId(),
+            'name'              => $this->getName(),
+            'metadata'          => $this->getMetadata()->getData(),
+            'parentId'          => $this->getParent() ?
+                $this->getParent()->getId() :
+                null,
+            'childrenIds'       => $childrenIds
+        ];
+    }
+
+
 }

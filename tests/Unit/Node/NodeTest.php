@@ -115,6 +115,78 @@ class NodeTest extends AbstractTestCase
         $node->setParent($node3);
     }
 
+    /**
+     * @expectedException \IronEdge\Component\Graphs\Exception\ChildDoesNotExistException
+     */
+    public function test_getChild_ifChildIsNotFoundThenThrowException()
+    {
+        $node = $this->createNodeInstance(['id' => 'someNode']);
+
+        $node->getChild('iDontExist');
+    }
+
+    public function test_getChild_ifChildIExistsThenReturnIt()
+    {
+        $node = $this->createNodeInstance(['id' => 'someNode']);
+        $node2 = $this->createNodeInstance(['id' => 'otherNode']);
+
+        $node2->addChild($node);
+
+        $child = $node2->getChild('someNode');
+
+        $this->assertEquals($node, $child);
+    }
+
+    public function test_resetMetadata_shouldResetTheMetadata()
+    {
+        $node = $this->createCustomNodeInstance(
+            ['id' => 'someId', 'metadata' => ['otherAttr' => 'otherValue']]
+        );
+
+        $this->assertEquals('testValue', $node->getMetadataAttr('testAttr'));
+        $this->assertTrue($node->hasMetadataAttr('otherAttr'));
+        $this->assertEquals('otherValue', $node->getMetadataAttr('otherAttr'));
+
+        $node->resetMetadata();
+
+        $this->assertEquals('testValue', $node->getMetadataAttr('testAttr'));
+        $this->assertFalse($node->hasMetadataAttr('otherAttr'));
+    }
+
+    public function test_toArray_shouldReturnAnArrayRepresentationOfTheNode()
+    {
+        $data = [
+            'id'            => 'someId',
+            'name'          => 'someName',
+            'metadata'      => [
+                'additionalAttr'        => 'additionalValue'
+            ]
+        ];
+        $node = $this->createCustomNodeInstance($data);
+        $data2 = [
+            'id'            => 'otherNode',
+            'name'          => 'someOtherName',
+            'metadata'      => [
+                'otherAdditionalAttr'        => 'otherAdditionalValue'
+            ]
+        ];
+        $node2 = $this->createCustomNodeInstance($data2);
+
+        $node->addChild($node2);
+
+        $data['parentId'] = null;
+        $data['childrenIds'] = ['otherNode'];
+        $data['metadata']['testAttr'] = 'testValue';
+
+        $this->assertEquals($data, $node->toArray());
+
+        $data2['parentId'] = 'someId';
+        $data2['childrenIds'] = [];
+        $data2['metadata']['testAttr'] = 'testValue';
+
+        $this->assertEquals($data2, $node2->toArray());
+    }
+
 
 
     // Data Providers
@@ -184,5 +256,12 @@ class CustomNode extends Node
     public function supportsParent(NodeInterface $node): bool
     {
         return $this->canSupportParent;
+    }
+
+    public function getDefaultMetadata()
+    {
+        return [
+            'testAttr'  => 'testValue'
+        ];
     }
 }
