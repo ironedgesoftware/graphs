@@ -11,9 +11,9 @@
 namespace IronEdge\Component\Graphs\Node;
 
 use IronEdge\Component\CommonUtils\Data\Data;
+use IronEdge\Component\Graphs\Event\SubscriberInterface;
 use IronEdge\Component\Graphs\Exception\ChildDoesNotExistException;
 use IronEdge\Component\Graphs\Exception\ChildTypeNotSupportedException;
-use IronEdge\Component\Graphs\Exception\NodeDoesNotExistException;
 use IronEdge\Component\Graphs\Exception\ParentTypeNotSupportedException;
 use IronEdge\Component\Graphs\Exception\ValidationException;
 
@@ -21,7 +21,7 @@ use IronEdge\Component\Graphs\Exception\ValidationException;
 /**
  * @author Gustavo Falco <comfortablynumb84@gmail.com>
  */
-class Node implements NodeInterface
+class Node implements NodeInterface, SubscriberInterface
 {
     /**
      * Field _id.
@@ -57,6 +57,13 @@ class Node implements NodeInterface
      * @var Data
      */
     private $_metadata;
+
+    /**
+     * Subscriber.
+     *
+     * @var array
+     */
+    private $_subscribers = [];
 
 
     /**
@@ -230,16 +237,20 @@ class Node implements NodeInterface
      *
      * @return NodeInterface
      */
-    public function setParent(NodeInterface $parent, $setParentsChild = true): NodeInterface
+    public function setParent(NodeInterface $parent = null, bool $setParentsChild = true): NodeInterface
     {
-        if (!$this->supportsParent($parent)) {
+        if ($parent && !$this->supportsParent($parent)) {
             throw ParentTypeNotSupportedException::create($this, $parent);
         }
 
         $this->_parent = $parent;
 
         if ($setParentsChild) {
-            $parent->addChild($this, false);
+            if ($parent) {
+                $parent->addChild($this, false);
+            } else {
+                $parent->removeChild($this->getId());
+            }
         }
 
         return $this;
@@ -283,7 +294,7 @@ class Node implements NodeInterface
      *
      * @return NodeInterface
      */
-    public function addChild(NodeInterface $child, $setParent = true): NodeInterface
+    public function addChild(NodeInterface $child, bool $setParent = true): NodeInterface
     {
         if (!$this->supportsChild($child)) {
             throw ChildTypeNotSupportedException::create($this, $child);
@@ -293,6 +304,28 @@ class Node implements NodeInterface
 
         if ($setParent) {
             $child->setParent($this, false);
+        }
+
+        return $this;
+    }
+
+    /**
+     * Removes a child.
+     *
+     * @param string $childId - Child ID.
+     *
+     * @return NodeInterface
+     */
+    public function removeChild(string $childId): NodeInterface
+    {
+        if ($this->hasChild($childId)) {
+            $child = $this->getChild($childId);
+
+            $child->setParent(null, false);
+
+            unset($this->_children[$childId]);
+
+            $this->notifySubscribers('remove_child', ['parent' => $this, 'child' => $childId]);
         }
 
         return $this;
@@ -326,6 +359,16 @@ class Node implements NodeInterface
     public function hasChild(string $id): bool
     {
         return isset($this->_children[$id]);
+    }
+
+    /**
+     * Returns count of children.
+     *
+     * @return int
+     */
+    public function countChildren(): int
+    {
+        return count($this->getChildren());
     }
 
     /**
@@ -397,6 +440,74 @@ class Node implements NodeInterface
     public function getDefaultMetadata()
     {
         return [];
+    }
+
+    /**
+     * Returns the value of field _subscribers.
+     *
+     * @return array
+     */
+    public function getSubscribers(): array
+    {
+        return $this->_subscribers;
+    }
+
+    /**
+     * Sets the value of field subscribers.
+     *
+     * @param array $subscribers - subscribers.
+     *
+     * @return NodeInterface
+     */
+    public function setSubscribers(array $subscribers): NodeInterface
+    {
+        $this->_subscribers = $subscribers;
+
+        return $this;
+    }
+
+    /**
+     * Adds a subscriber.
+     *
+     * @param SubscriberInterface $subscriber - Subscriber.
+     *
+     * @return NodeInterface
+     */
+    public function addSubscriber(SubscriberInterface $subscriber): NodeInterface
+    {
+        $this->_subscribers[$subscriber->getId()] = $subscriber;
+
+        return $this;
+    }
+
+
+    /**
+     * This method is called when an event is fired.
+     *
+     * @param string $id  - Event ID.
+     * @param array $data - Event Data.
+     *
+     * @return void
+     */
+    public function handleEvent(string $id, array $data)
+    {
+
+    }
+
+    /**
+     * Fires an event. Subscribers gets notified about this event.
+     *
+     * @param string $id  - Event ID.
+     * @param array $data - Event Data.
+     *
+     * @return void
+     */
+    public function notifySubscribers(string $id, array $data)
+    {
+        /** @var SubscriberInterface $subscriber */
+        foreach ($this->getSubscribers() as $subscriber) {
+            $subscriber->handleEvent($id, $data);
+        }
     }
 
     /**

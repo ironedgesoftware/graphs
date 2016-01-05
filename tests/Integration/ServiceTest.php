@@ -44,7 +44,7 @@ class ServiceTest extends AbstractTestCase
         $service = $this->createService();
         $graph = $service->createGraph($this->getExampleGraphData());
 
-        $response = $service->export($graph, ['writer' => 'graphviz', 'path' => $this->getTmpDir().'/graphviz.png']);
+        $response = $service->export($graph, ['writer' => 'graphviz', 'path' => '/var/www/html/graphviz.png']);
 
         $this->assertTrue(is_file($response->getPath()));
     }
@@ -101,8 +101,30 @@ class ServiceTest extends AbstractTestCase
                     'parentId'  => 'node1'
                 ],
                 [
-                    'id'        => 'node3',
-                    'parentId'  => 'node2',
+                    'id'            => 'node3',
+                    'parentId'      => 'node2',
+                    'nodeType'      => 'graph',
+                    'nodes'             => [
+                        [
+                            'id'            => 'node4',
+                            'childrenIds'   => [
+                                'node5'
+                            ],
+                            'isRootNode'    => true
+                        ],
+                        [
+                            'id'            => 'node5',
+                            'metadata'  => [
+                                'graphviz'      => [
+                                    'nodeAttributes'    => [
+                                        'shape'             => 'circle',
+                                        'style'             => 'filled',
+                                        'color'             => '".7 .3 1.0"'
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ],
                     'metadata'  => [
                         'graphviz'      => [
                             'nodeAttributes'    => [

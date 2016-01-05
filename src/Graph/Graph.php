@@ -12,6 +12,8 @@ declare(strict_types=1);
 
 namespace IronEdge\Component\Graphs\Graph;
 
+use IronEdge\Component\Graphs\Exception\GraphCantHaveTwoRootNodesException;
+use IronEdge\Component\Graphs\Exception\GraphMustHaveOnlyOneChildException;
 use IronEdge\Component\Graphs\Exception\NodeDoesNotExistException;
 use IronEdge\Component\Graphs\Exception\ValidationException;
 use IronEdge\Component\Graphs\Node\Node;
@@ -115,12 +117,50 @@ class Graph extends Node implements GraphInterface
     }
 
     /**
+     * Adds a child to this node.
+     *
+     * @param NodeInterface $child          - Child.
+     * @param bool          $setChildParent - Set child's parent.
+     *
+     * @throws GraphMustHaveOnlyOneChildException
+     *
+     * @return NodeInterface
+     */
+    public function addChild(NodeInterface $child, bool $setParent = true): NodeInterface
+    {
+        if ($this->countChildren()) {
+            throw GraphMustHaveOnlyOneChildException::create(
+                $this->getId(),
+                $this->getGraphChild()->getId(),
+                $child->getId()
+            );
+        }
+
+        return parent::addChild($child, $setParent);
+    }
+
+    /**
+     * Returns the child of this graph, if it exists.
+     *
+     * @return null|NodeInterface
+     */
+    public function getGraphChild()
+    {
+        $children = $this->getChildren();
+
+        return $children ?
+            array_values($children)[0] :
+            null;
+    }
+
+    /**
      * Initializes the graph with an array of data.
      *
      * @param array $data    - Data.
      * @param array $options - Options.
      *
      * @throws ValidationException
+     * @throws GraphCantHaveTwoRootNodesException
      *
      * @return NodeInterface
      */
@@ -138,13 +178,19 @@ class Graph extends Node implements GraphInterface
                     throw ValidationException::create('Field "nodes" must be an array of arrays.');
                 }
 
-                $this->addNode($this->createNode($nodeData, $options));
+                $node = $this->createNode($nodeData, $options);
+
+                $this->addNode($node);
             }
 
             // Now, set parents and children of nodes
 
             foreach ($data['nodes'] as $nodeData) {
                 $currentNode = $this->getNode($nodeData['id']);
+
+                if (isset($nodeData['isRootNode']) && $nodeData['isRootNode']) {
+                    $this->addChild($currentNode);
+                }
 
                 if (isset($nodeData['parentId'])) {
                     if (!is_string($nodeData['parentId']) || $nodeData['parentId'] === '') {
@@ -187,6 +233,10 @@ class Graph extends Node implements GraphInterface
      */
     public function createNode(array $data, array $options = []): NodeInterface
     {
+        if (isset($data['nodeType']) && $data['nodeType'] === 'graph') {
+            return new Graph($data);
+        }
+
         return new Node($data);
     }
 }

@@ -74,6 +74,13 @@ interface GraphInterface extends NodeInterface
     public function countNodes(): int;
 
     /**
+     * Returns the child of this graph, if it exists.
+     *
+     * @return null|NodeInterface
+     */
+    public function getGraphChild();
+
+    /**
      * Creates a node.
      *
      * @param array $data    - Data.

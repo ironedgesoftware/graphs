@@ -137,6 +137,24 @@ class NodeTest extends AbstractTestCase
         $this->assertEquals($node, $child);
     }
 
+    public function test_removeChild_removesChildIfItExists()
+    {
+        $node = $this->createNodeInstance(['id' => 'someNode']);
+        $node2 = $this->createNodeInstance(['id' => 'otherNode']);
+
+        $node2->addChild($node);
+
+        $this->assertTrue($node2->hasChild('someNode'));
+
+        $node2->removeChild('someNode');
+
+        $this->assertFalse($node2->hasChild('someNode'));
+
+        $node2->removeChild('someNode');
+
+        $this->assertFalse($node2->hasChild('someNode'));
+    }
+
     public function test_resetMetadata_shouldResetTheMetadata()
     {
         $node = $this->createCustomNodeInstance(

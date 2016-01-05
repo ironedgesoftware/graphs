@@ -15,6 +15,7 @@ use IronEdge\Component\Graphs\Exception\ExportException;
 use IronEdge\Component\Graphs\Exception\ValidationException;
 use IronEdge\Component\Graphs\Export\Utils;
 use IronEdge\Component\Graphs\Graph\Graph;
+use IronEdge\Component\Graphs\Graph\GraphInterface;
 use IronEdge\Component\Graphs\Node\NodeInterface;
 
 
@@ -72,7 +73,7 @@ class GraphvizWriter implements WriterInterface
     {
         if (!$this->getUtils()->isDotInstalled()) {
             throw ExportException::create(
-                'Can\'t export to a Graphviz image because "dot" binary is not available. Verify that the '.
+                'Can\'t export to a Graphviz image because "dot" binary is not available. Verify that the ' .
                 '"graphviz" package is installed on your system.'
             );
         }
@@ -85,7 +86,7 @@ class GraphvizWriter implements WriterInterface
 
         if (!isset($options['path']) || !is_string($options['path']) || $options['path'] === '') {
             throw ValidationException::create(
-                'To be able to export this graph to a graphviz image, you must set option "path" with a string '.
+                'To be able to export this graph to a graphviz image, you must set option "path" with a string ' .
                 'with the path to the target file.'
             );
         }
@@ -94,26 +95,50 @@ class GraphvizWriter implements WriterInterface
         $graph = $data['graph'];
         $file = $options['path'];
 
-        $graphvizCode = 'digraph '.$graph->getId().' {'.PHP_EOL;
+        $graphvizCode = 'digraph ' . $graph->getId() . ' {' . PHP_EOL;
         $graphAttributes = $graph->getMetadataAttr('graphviz.nodeAttributes', []);
 
         if ($graphAttributes) {
             foreach ($graphAttributes as $k => $v) {
-                $graphvizCode .= '  '.$k.'='.$v.';'.PHP_EOL;
+                $graphvizCode .= '  ' . $k . '=' . $v . ';' . PHP_EOL;
             }
 
             $graphvizCode .= PHP_EOL;
         }
 
-        /** @var NodeInterface $node */
-        foreach ($graph->getNodes() as $node) {
-            $graphvizCode .= '  '.$this->generateNodeAttributesCode($node).PHP_EOL.PHP_EOL;
-            $graphvizCode .= '  '.$this->generateNodeRelationsCode($node).PHP_EOL;
-        }
+        $processedNodes = [];
+        $graphvizCode .= $this->generateNodeCode($graph, true, $processedNodes);
 
         $graphvizCode .= '}';
 
         $this->generateGraphvizOutputFile($graphvizCode, $file, ['targetType' => 'png']);
+    }
+
+    public function generateNodeCode(NodeInterface $node, bool $onlyChildren, array &$processedNodes)
+    {
+        if (isset($processedNodes[$node->getId()])) {
+            return '';
+        }
+
+        $graphvizCode = '';
+
+        if (!$onlyChildren) {
+            $graphvizCode .= '  '.$this->generateNodeAttributesCode($node).PHP_EOL.PHP_EOL;
+            $graphvizCode .= '  '.$this->generateNodeRelationsCode($node).PHP_EOL.PHP_EOL;
+        }
+
+        $children = $node instanceof GraphInterface && !$node->getParent() ?
+            $node->getNodes() :
+            $node->getChildren();
+
+        /** @var NodeInterface $node */
+        foreach ($children as $n) {
+            $graphvizCode .= $this->generateNodeCode($n, false, $processedNodes);
+        }
+
+        $processedNodes[$node->getId()] = true;
+
+        return $graphvizCode;
     }
 
     public function generateNodeAttributesCode(NodeInterface $node)

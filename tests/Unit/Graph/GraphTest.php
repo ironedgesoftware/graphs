@@ -12,6 +12,7 @@ declare(strict_types=1);
 
 namespace IronEdge\Component\Graphs\Test\Unit\Graph;
 
+use IronEdge\Component\Graphs\Exception\ChildDoesNotExistException;
 use IronEdge\Component\Graphs\Exception\NodeDoesNotExistException;
 use IronEdge\Component\Graphs\Exception\ValidationException;
 use IronEdge\Component\Graphs\Graph\Graph;
@@ -30,7 +31,7 @@ class GraphTest extends AbstractTestCase
      */
     public function test_initialize_ifIdIsInvalidThenThrowException(array $data)
     {
-        $graph = $this->createGraphInstance($data);
+        $this->createGraphInstance($data);
     }
 
     /**
@@ -97,8 +98,6 @@ class GraphTest extends AbstractTestCase
 
 
 
-
-
     // Data Providers
 
     public function invalidIdDataProvider()
@@ -118,7 +117,7 @@ class GraphTest extends AbstractTestCase
 
     public function invalidNodesDataProvider()
     {
-        $nodeException = new NodeDoesNotExistException();
+        $nodeDoesNotExist = new NodeDoesNotExistException();
 
         return [
             [
@@ -158,7 +157,7 @@ class GraphTest extends AbstractTestCase
             ],
             [
                 ['id' => 'myId', 'nodes' => [['id' => 'a', 'parentId' => 'invalidParentId']]],
-                get_class($nodeException)
+                get_class($nodeDoesNotExist)
             ],
             [
                 ['id' => 'myId', 'nodes' => [['id' => 'a', 'childrenIds' => '']]],
@@ -172,7 +171,7 @@ class GraphTest extends AbstractTestCase
             ],
             [
                 ['id' => 'myId', 'nodes' => [['id' => 'a', 'childrenIds' => ['invalidParentId']]]],
-                get_class($nodeException)
+                get_class($nodeDoesNotExist)
             ]
         ];
     }

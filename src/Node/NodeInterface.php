@@ -12,8 +12,8 @@ namespace IronEdge\Component\Graphs\Node;
 
 
 use IronEdge\Component\CommonUtils\Data\Data;
+use IronEdge\Component\Graphs\Event\SubscriberInterface;
 use IronEdge\Component\Graphs\Exception\ChildTypeNotSupportedException;
-use IronEdge\Component\Graphs\Exception\NodeDoesNotExistException;
 
 interface NodeInterface
 {
@@ -118,7 +118,7 @@ interface NodeInterface
      *
      * @return NodeInterface
      */
-    public function setParent(NodeInterface $parent, $setParentsChild = true): NodeInterface;
+    public function setParent(NodeInterface $parent = null, bool $setParentsChild = true): NodeInterface;
 
     /**
      * Returns the value of field _children.
@@ -146,7 +146,16 @@ interface NodeInterface
      *
      * @return NodeInterface
      */
-    public function addChild(NodeInterface $child, $setParent = true): NodeInterface;
+    public function addChild(NodeInterface $child, bool $setParent = true): NodeInterface;
+
+    /**
+     * Removes a child.
+     *
+     * @param string $childId - Child ID.
+     *
+     * @return NodeInterface
+     */
+    public function removeChild(string $childId): NodeInterface;
 
     /**
      * Returns a child by ID.
@@ -167,6 +176,13 @@ interface NodeInterface
      * @return bool
      */
     public function hasChild(string $id): bool;
+
+    /**
+     * Returns count of children.
+     *
+     * @return int
+     */
+    public function countChildren(): int;
 
     /**
      * Returns true if this node supports the following child.
@@ -195,6 +211,41 @@ interface NodeInterface
      * @return NodeInterface
      */
     public function initialize(array $data, array $options = []);
+
+    /**
+     * Returns the value of field _subscribers.
+     *
+     * @return array
+     */
+    public function getSubscribers(): array;
+
+    /**
+     * Sets the value of field subscribers.
+     *
+     * @param array $subscribers - subscribers.
+     *
+     * @return NodeInterface
+     */
+    public function setSubscribers(array $subscribers): NodeInterface;
+
+    /**
+     * Adds a subscriber.
+     *
+     * @param SubscriberInterface $subscriber - Subscriber.
+     *
+     * @return NodeInterface
+     */
+    public function addSubscriber(SubscriberInterface $subscriber): NodeInterface;
+
+    /**
+     * Fires an event. Subscribers gets notified about this event.
+     *
+     * @param string $id  - Event ID.
+     * @param array $data - Event Data.
+     *
+     * @return void
+     */
+    public function notifySubscribers(string $id, array $data);
 
     /**
      * Returns default metadata.
