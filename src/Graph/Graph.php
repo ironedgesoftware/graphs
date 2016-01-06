@@ -166,8 +166,6 @@ class Graph extends Node implements GraphInterface
      */
     public function initialize(array $data, array $options = []): NodeInterface
     {
-        parent::initialize($data, $options);
-
         if (isset($data['nodes'])) {
             if (!is_array($data['nodes'])) {
                 throw ValidationException::create('Field "nodes" must be an array.');
@@ -218,8 +216,28 @@ class Graph extends Node implements GraphInterface
             }
         }
 
+        parent::initialize($data, $options);
+
         return $this;
     }
+
+    /**
+     * Returns the default metadata used on this node.
+     *
+     * @return array
+     */
+    public function getDefaultMetadata()
+    {
+        return array_replace_recursive(
+            parent::getDefaultMetadata(),
+            [
+                'validations'           => [
+                    'minChildren'           => 1
+                ]
+            ]
+        );
+    }
+
 
     /**
      * Creates a node.

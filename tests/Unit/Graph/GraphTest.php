@@ -57,11 +57,12 @@ class GraphTest extends AbstractTestCase
             'id'            => 'myGraph',
             'nodes'         => [
                 [
-                    'id'        => 'node1'
+                    'id'            => 'node1',
+                    'isRootNode'    => true
                 ],
                 [
-                    'id'        => 'node2',
-                    'parentId'  => 'node1'
+                    'id'            => 'node2',
+                    'parentId'      => 'node1'
                 ]
             ]
         ]);
@@ -79,7 +80,14 @@ class GraphTest extends AbstractTestCase
 
     public function test_setNodes_setsGraphNodes()
     {
-        $graph = $this->createGraphInstance(['id' => 'graph1']);
+        $graph = $this->createGraphInstance(
+            [
+                'id'                        => 'graph1'
+            ],
+            [
+                'validateMinChildren'       => false
+            ]
+        );
 
         $node = new Node(['id' => 'node1']);
         $node2 = new Node(['id' => 'node2']);
@@ -184,8 +192,8 @@ class GraphTest extends AbstractTestCase
      *
      * @return Graph
      */
-    protected function createGraphInstance(array $data = []): Graph
+    protected function createGraphInstance(array $data = [], array $options = []): Graph
     {
-        return new Graph($data);
+        return new Graph($data, $options);
     }
 }

@@ -69,11 +69,12 @@ class Node implements NodeInterface, SubscriberInterface
     /**
      * Node constructor.
      *
-     * @param array $data - Node's data.
+     * @param array $data    - Node's data.
+     * @param array $options - Options.
      */
-    public function __construct(array $data = [])
+    public function __construct(array $data = [], array $options = [])
     {
-        $this->initialize($data);
+        $this->initialize($data, $options);
     }
 
     /**
@@ -178,9 +179,9 @@ class Node implements NodeInterface, SubscriberInterface
     /**
      * Sets a metadata attribute.
      *
-     * @param string $attr    - Attribute.
-     * @param mixed  $value   - Value.
-     * @param array  $options - Options.
+     * @param string $attr - Attribute.
+     * @param mixed $value - Value.
+     * @param array $options - Options.
      *
      * @return $this
      */
@@ -194,9 +195,9 @@ class Node implements NodeInterface, SubscriberInterface
     /**
      * Returns a metadata attribute.
      *
-     * @param string $attr         - Attribute.
-     * @param mixed  $defaultValue - Default value.
-     * @param array  $options      - Options.
+     * @param string $attr - Attribute.
+     * @param mixed $defaultValue - Default value.
+     * @param array $options - Options.
      *
      * @return mixed
      */
@@ -230,8 +231,8 @@ class Node implements NodeInterface, SubscriberInterface
     /**
      * Sets the value of field parent.
      *
-     * @param NodeInterface $parent          - Parent.
-     * @param bool          $setParentsChild - Set parent's child.
+     * @param NodeInterface $parent - Parent.
+     * @param bool $setParentsChild - Set parent's child.
      *
      * @throws ParentTypeNotSupportedException
      *
@@ -243,15 +244,21 @@ class Node implements NodeInterface, SubscriberInterface
             throw ParentTypeNotSupportedException::create($this, $parent);
         }
 
+        $oldParent = $this->_parent;
         $this->_parent = $parent;
 
         if ($setParentsChild) {
             if ($parent) {
                 $parent->addChild($this, false);
-            } else {
-                $parent->removeChild($this->getId());
+            } else if ($oldParent) {
+                $oldParent->removeChild($this->getId());
             }
         }
+
+        $this->notifySubscribers(
+            'set_parent',
+            ['oldParent' => $oldParent, 'newParent' => $parent, 'child' => $this]
+        );
 
         return $this;
     }
@@ -287,8 +294,8 @@ class Node implements NodeInterface, SubscriberInterface
     /**
      * Adds a child to this node.
      *
-     * @param NodeInterface $child          - Child.
-     * @param bool          $setChildParent - Set child's parent.
+     * @param NodeInterface $child - Child.
+     * @param bool $setChildParent - Set child's parent.
      *
      * @throws ChildTypeNotSupportedException
      *
@@ -305,6 +312,8 @@ class Node implements NodeInterface, SubscriberInterface
         if ($setParent) {
             $child->setParent($this, false);
         }
+
+        $this->notifySubscribers('add_child', ['parent' => $this, 'child' => $child]);
 
         return $this;
     }
@@ -325,7 +334,7 @@ class Node implements NodeInterface, SubscriberInterface
 
             unset($this->_children[$childId]);
 
-            $this->notifySubscribers('remove_child', ['parent' => $this, 'child' => $childId]);
+            $this->notifySubscribers('remove_child', ['parent' => $this, 'child' => $child]);
         }
 
         return $this;
@@ -374,7 +383,7 @@ class Node implements NodeInterface, SubscriberInterface
     /**
      * Initializes the node.
      *
-     * @param array $data    - Data.
+     * @param array $data - Data.
      * @param array $options - Initialization options.
      *
      * @throws ValidationException
@@ -405,7 +414,71 @@ class Node implements NodeInterface, SubscriberInterface
             $this->setMetadata($data['metadata']);
         }
 
+        $this->validate($options);
+
         return $this;
+    }
+
+    /**
+     * This method is called after initializing the data.
+     *
+     * @param array $options - Options.
+     *
+     * @throws ValidationException
+     *
+     * @return void
+     */
+    public function validate(array $options = [])
+    {
+        $options = array_replace(
+            [
+                'validateMinChildren'           => true,
+                'validateMaxChildren'           => true,
+                'validateParentMandatory'       => true,
+                'validateParentMustNotBeSet'    => true
+            ],
+            $options
+        );
+
+        $countChildren = $this->countChildren();
+
+        if ($options['validateMinChildren']
+            && ($min = $this->getValidationConfig('minChildren')) !== null
+            && $min > $countChildren
+        ) {
+            throw ValidationException::create(
+                'Children must be, at least, ' . $min . '. Currently, node "' . $this->getId() . '" has ' .
+                $countChildren . ' children.'
+            );
+        }
+
+        if ($options['validateMaxChildren']
+            && ($max = $this->getValidationConfig('maxChildren')) !== null
+            && $max < $countChildren
+        ) {
+            throw ValidationException::create(
+                'Children cannot exceed a maximum of ' . $max . '. Currently, node "' . $this->getId() . '" has ' .
+                $countChildren . ' children.'
+            );
+        }
+
+        if ($options['validateParentMandatory']
+            && $this->getValidationConfig('parentMandatory')
+            && $this->getParent() === null
+        ) {
+            throw ValidationException::create(
+                'Node "' . $this->getId() . '" must have a Parent!'
+            );
+        }
+
+        if ($options['validateParentMustNotBeSet']
+            && $this->getValidationConfig('parentMustNotBeSet')
+            && $this->getParent() !== null
+        ) {
+            throw ValidationException::create(
+                'Node "' . $this->getId() . '" must NOT have a Parent!'
+            );
+        }
     }
 
     /**
@@ -433,13 +506,48 @@ class Node implements NodeInterface, SubscriberInterface
     }
 
     /**
+     * Returns a validation config value, or $default it it does not exist.
+     *
+     * @param string $name - Validation name.
+     * @param mixed $default - Default value.
+     *
+     * @return mixed
+     */
+    public function getValidationConfig(string $name, $default = null)
+    {
+        return $this->getMetadataAttr('validations.' . $name, $default);
+    }
+
+    /**
+     * Sets a validation config.
+     *
+     * @param string $name - Validation name.
+     * @param mixed $value - Validation value.
+     *
+     * @return NodeInterface
+     */
+    public function setValidationConfig(string $name, $value): NodeInterface
+    {
+        $this->setMetadataAttr('validations.'.$name, $value);
+
+        return $this;
+    }
+
+    /**
      * Returns default metadata.
      *
      * @return array
      */
     public function getDefaultMetadata()
     {
-        return [];
+        return [
+            'validations'           => [
+                'minChildren'           => null,
+                'maxChildren'           => null,
+                'parentMandatory'       => false,
+                'parentMustNotBeSet'    => false
+            ]
+        ];
     }
 
     /**
@@ -461,7 +569,11 @@ class Node implements NodeInterface, SubscriberInterface
      */
     public function setSubscribers(array $subscribers): NodeInterface
     {
-        $this->_subscribers = $subscribers;
+        $this->_subscribers = [];
+
+        foreach ($subscribers as $subscriber) {
+            $this->addSubscriber($subscriber);
+        }
 
         return $this;
     }

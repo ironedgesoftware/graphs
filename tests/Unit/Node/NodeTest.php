@@ -23,6 +23,113 @@ use IronEdge\Component\Graphs\Test\Unit\AbstractTestCase;
  */
 class NodeTest extends AbstractTestCase
 {
+    public function test_setParent_shouldRemoveParentsChild()
+    {
+        $data = [
+            'id'        => 'node1'
+        ];
+        $node = $this->createNodeInstance($data);
+        $data = [
+            'id'        => 'node2'
+        ];
+        $node2 = $this->createNodeInstance($data);
+
+        $node->setParent($node2);
+
+        $this->assertTrue($node2->hasChild('node1'));
+
+        $node->setParent(null);
+
+        $this->assertFalse($node2->hasChild('node1'));
+
+        // Should not fail if called again
+
+        $node->setParent(null);
+
+        $this->assertFalse($node2->hasChild('node1'));
+    }
+
+    public function test_validate_shouldThrowExceptionIfParentIsSet()
+    {
+        $this->setExpectedExceptionRegExp(
+            get_class(new ValidationException()),
+            '/Node "node1" must NOT have a Parent/'
+        );
+
+        $data = [
+            'id'        => 'node1'
+        ];
+        $node = $this->createNodeInstance($data);
+        $data = [
+            'id'        => 'node2'
+        ];
+        $node2 = $this->createNodeInstance($data);
+
+        $node->setParent($node2);
+
+        $node->setValidationConfig('parentMustNotBeSet', true);
+        $node->validate();
+    }
+
+    public function test_validate_shouldThrowExceptionIfParentIsNotSet()
+    {
+        $this->setExpectedExceptionRegExp(
+            get_class(new ValidationException()),
+            '/Node "node1" must have a Parent/'
+        );
+
+        $data = [
+            'id'        => 'node1'
+        ];
+        $node = $this->createNodeInstance($data);
+
+        $node->setValidationConfig('parentMandatory', true);
+        $node->validate();
+    }
+
+    public function test_validate_shouldThrowExceptionIfMaxChildrenIsExceeded()
+    {
+        $this->setExpectedExceptionRegExp(
+            get_class(new ValidationException()),
+            '/Children cannot exceed a maximum of 1/'
+        );
+
+        $data = [
+            'id'        => 'node1'
+        ];
+        $node = $this->createNodeInstance($data);
+        $data = [
+            'id'        => 'node2'
+        ];
+        $node2 = $this->createNodeInstance($data);
+        $data = [
+            'id'        => 'node3'
+        ];
+        $node3 = $this->createNodeInstance($data);
+
+        $node->setValidationConfig('maxChildren', 1);
+
+        $node->setChildren([$node2, $node3]);
+
+        $node->validate();
+    }
+
+    public function test_validate_shouldThrowExceptionIfMinChildrenIsNotMeet()
+    {
+        $this->setExpectedExceptionRegExp(
+            get_class(new ValidationException()),
+            '/Children must be, at least, 1/'
+        );
+
+        $data = [
+            'id'        => 'node1'
+        ];
+        $node = $this->createNodeInstance($data);
+
+        $node->setValidationConfig('minChildren', 1);
+        $node->validate();
+    }
+
     public function test_initialize_setsDataSuccessfully()
     {
         $data = [
@@ -36,6 +143,13 @@ class NodeTest extends AbstractTestCase
         ];
 
         $node = $this->createNodeInstance($data);
+
+        $data = array_replace_recursive(
+            $data,
+            [
+                'metadata'          => $node->getDefaultMetadata()
+            ]
+        );
 
         $this->assertEquals($data['id'], $node->getId());
         $this->assertEquals($data['name'], $node->getName());

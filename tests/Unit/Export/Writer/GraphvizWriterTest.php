@@ -72,7 +72,7 @@ class GraphvizWriterTest extends AbstractTestCase
             ->expects($this->once())
             ->method('isDotInstalled')
             ->will($this->returnValue(true));
-        $graph = new Graph(['id' => 'test']);
+        $graph = new Graph(['id' => 'test'], ['validateMinChildren' => false]);
 
         $writer->write(['graph' => $graph], []);
     }

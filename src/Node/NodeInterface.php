@@ -14,6 +14,7 @@ namespace IronEdge\Component\Graphs\Node;
 use IronEdge\Component\CommonUtils\Data\Data;
 use IronEdge\Component\Graphs\Event\SubscriberInterface;
 use IronEdge\Component\Graphs\Exception\ChildTypeNotSupportedException;
+use IronEdge\Component\Graphs\Exception\ValidationException;
 
 interface NodeInterface
 {
@@ -203,6 +204,26 @@ interface NodeInterface
     public function supportsParent(NodeInterface $parent): bool;
 
     /**
+     * Sets a validation config.
+     *
+     * @param string $name  - Validation name.
+     * @param mixed  $value - Validation value.
+     *
+     * @return NodeInterface
+     */
+    public function setValidationConfig(string $name, $value): NodeInterface;
+
+    /**
+     * Returns a validation config value, or $default it it does not exist.
+     *
+     * @param string $name    - Validation name.
+     * @param mixed  $default - Default value.
+     *
+     * @return mixed
+     */
+    public function getValidationConfig(string $name, $default = null);
+
+    /**
      * Initializes the node.
      *
      * @param array $data    - Node's data.
@@ -211,6 +232,17 @@ interface NodeInterface
      * @return NodeInterface
      */
     public function initialize(array $data, array $options = []);
+
+    /**
+     * This method is called after initializing the data.
+     *
+     * @param array $options - Options.
+     *
+     * @throws ValidationException
+     *
+     * @return void
+     */
+    public function validate(array $options = []);
 
     /**
      * Returns the value of field _subscribers.

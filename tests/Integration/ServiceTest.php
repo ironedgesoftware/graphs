@@ -86,7 +86,8 @@ class ServiceTest extends AbstractTestCase
             'nodes'         => [
                 [
                     'id'        => 'node1',
-                    'metadata'  => [
+                    'isRootNode'    => true,
+                    'metadata'      => [
                         'graphviz'      => [
                             'relationsAttributes'       => [
                                 'node2'                     => [
