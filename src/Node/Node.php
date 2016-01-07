@@ -78,6 +78,13 @@ class Node implements NodeInterface
      */
     private $_nodes = [];
 
+    /**
+     * This factory is a callable used to instantiate nodes.
+     *
+     * @var callable
+     */
+    private $_nodeFactory;
+
 
 
     /**
@@ -525,6 +532,60 @@ class Node implements NodeInterface
     }
 
     /**
+     * Sets the value of field nodes.
+     *
+     * @param array $nodes - nodes.
+     *
+     * @return NodeInterface
+     */
+    public function setNodes(array $nodes): NodeInterface
+    {
+        $this->_nodes = [];
+
+        foreach ($nodes as $node) {
+            $this->addNode($node);
+        }
+
+        return $this;
+    }
+
+    /**
+     * Adds a node to this graph.
+     *
+     * @param NodeInterface $node - Node.
+     *
+     * @return NodeInterface
+     */
+    public function addNode(NodeInterface $node): NodeInterface
+    {
+        $this->_nodes[$node->getId()] = $node;
+
+        if ($this->getParent()) {
+            $this->getParent()->addNode($node);
+        }
+
+        return $this;
+    }
+
+    /**
+     * Removes a node.
+     *
+     * @param NodeInterface $node - Node.
+     *
+     * @return NodeInterface
+     */
+    public function removeNode(NodeInterface $node): NodeInterface
+    {
+        unset($this->_nodes[$node->getId()]);
+
+        if ($this->getParent()) {
+            $this->getParent()->removeNode($node);
+        }
+
+        return $this;
+    }
+
+    /**
      * Returns how many nodes does this graph have.
      *
      * @return int
@@ -532,6 +593,30 @@ class Node implements NodeInterface
     public function countNodes(): int
     {
         return count($this->_nodes);
+    }
+
+    /**
+     * Returns the node factory callable.
+     *
+     * @return callable
+     */
+    public function getNodeFactory(): callable
+    {
+        return $this->_nodeFactory;
+    }
+
+    /**
+     * Sets the value of field nodeFactory.
+     *
+     * @param callable $nodeFactory - nodeFactory.
+     *
+     * @return NodeInterface
+     */
+    public function setNodeFactory(callable $nodeFactory): NodeInterface
+    {
+        $this->_nodeFactory = $nodeFactory;
+
+        return $this;
     }
 
     /**
@@ -581,6 +666,20 @@ class Node implements NodeInterface
         }
 
         $this->addSubscriber($this);
+
+        if (isset($data['nodeFactory'])) {
+            if (!is_callable($data['nodeFactory'])) {
+                throw ValidationException::create(
+                    'Field "nodeFactory" must be a callable.'
+                );
+            }
+        } else {
+            $data['nodeFactory'] = function(array $data, array $options) {
+                return new Node($data, $options);
+            };
+        }
+
+        $this->setNodeFactory($data['nodeFactory']);
 
         if (isset($data['children'])) {
             if (!is_array($data['children'])) {
@@ -729,8 +828,7 @@ class Node implements NodeInterface
                 'minChildren'                   => null,
                 'maxChildren'                   => null,
                 'parentMandatory'               => false,
-                'parentMustNotBeSet'            => false,
-                'uniqueIds'                     => false
+                'parentMustNotBeSet'            => false
             ]
         ];
     }
@@ -876,60 +974,8 @@ class Node implements NodeInterface
      */
     public function createNode(array $data, array $options = []): NodeInterface
     {
-        return new Node($data, $options);
-    }
+        $factory = $this->getNodeFactory();
 
-    /**
-     * Sets the value of field nodes.
-     *
-     * @param array $nodes - nodes.
-     *
-     * @return NodeInterface
-     */
-    protected function setNodes(array $nodes): NodeInterface
-    {
-        $this->_nodes = [];
-
-        foreach ($nodes as $node) {
-            $this->addNode($node);
-        }
-
-        return $this;
-    }
-
-    /**
-     * Adds a node to this graph.
-     *
-     * @param NodeInterface $node - Node.
-     *
-     * @return NodeInterface
-     */
-    protected function addNode(NodeInterface $node): NodeInterface
-    {
-        $this->_nodes[$node->getId()] = $node;
-
-        if ($this->getParent()) {
-            $this->getParent()->addNode($node);
-        }
-
-        return $this;
-    }
-
-    /**
-     * Removes a node.
-     *
-     * @param NodeInterface $node - Node.
-     *
-     * @return NodeInterface
-     */
-    protected function removeNode(NodeInterface $node): NodeInterface
-    {
-        unset($this->_nodes[$node->getId()]);
-
-        if ($this->getParent()) {
-            $this->getParent()->removeNode($node);
-        }
-
-        return $this;
+        return $factory($data, $options);
     }
 }

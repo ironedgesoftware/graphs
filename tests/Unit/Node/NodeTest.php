@@ -12,6 +12,8 @@ declare(strict_types=1);
 
 namespace IronEdge\Component\Graphs\Test\Unit\Node;
 
+use IronEdge\Component\Graphs\Event\SubscriberInterface;
+use IronEdge\Component\Graphs\Exception\NodeDoesNotExistException;
 use IronEdge\Component\Graphs\Exception\ValidationException;
 use IronEdge\Component\Graphs\Node\Node;
 use IronEdge\Component\Graphs\Node\NodeInterface;
@@ -23,6 +25,84 @@ use IronEdge\Component\Graphs\Test\Unit\AbstractTestCase;
  */
 class NodeTest extends AbstractTestCase
 {
+    public function test_setSubscribers_clearsOriginalSubscribersAndSetsNewOnes()
+    {
+        $node = $this->createNodeInstance(
+            [
+                'id'            => 'node1',
+                'children'      => [
+                    [
+                        'id'        => 'node2'
+                    ]
+                ]
+            ]
+        );
+
+        $this->assertCount(1, $node->getSubscribers());
+        $this->assertCount(2, $node->getNode('node2')->getSubscribers());
+
+        $node->setSubscribers([]);
+
+        $this->assertCount(0, $node->getSubscribers());
+        $this->assertCount(2, $node->getNode('node2')->getSubscribers());
+
+        $node->getNode('node2')->setSubscribers([]);
+
+        $this->assertCount(0, $node->getSubscribers());
+        $this->assertCount(0, $node->getNode('node2')->getSubscribers());
+
+        $node->setSubscribers([
+            new class implements SubscriberInterface {
+                public function getId(): string { return 'a'; }
+                public function handleEvent(string $id, array $data) {}
+            },
+            new class implements SubscriberInterface {
+                public function getId(): string { return 'b'; }
+                public function handleEvent(string $id, array $data) {}
+            },
+            new class implements SubscriberInterface {
+                public function getId(): string { return 'c'; }
+                public function handleEvent(string $id, array $data) {}
+            }
+        ]);
+
+        $this->assertCount(3, $node->getSubscribers());
+        $this->assertCount(0, $node->getNode('node2')->getSubscribers());
+    }
+
+    public function test_getNode_shouldThrowExceptionIfNodeDoesNotExists()
+    {
+        $this->setExpectedExceptionRegExp(
+            get_class(new NodeDoesNotExistException())
+        );
+
+        $node = $this->createNodeInstance(
+            [
+                'id'            => 'node1'
+            ]
+        );
+
+        $node->getNode('node2');
+    }
+
+    public function test_getNode_shouldReturnTheNodeIfItExists()
+    {
+        $node = $this->createNodeInstance(
+            [
+                'id'            => 'node1',
+                'children'      => [
+                    [
+                        'id'        => 'node2'
+                    ]
+                ]
+            ]
+        );
+
+        $node2 = $node->getNode('node2');
+
+        $this->assertEquals('node2', $node2->getId());
+    }
+
     /**
      * @expectedException \IronEdge\Component\Graphs\Exception\ValidationException
      * @dataProvider invalidIdDataProvider
@@ -463,6 +543,15 @@ class NodeTest extends AbstractTestCase
                 ],
                 $validationExceptionClass,
                 '/Field \"parent\" must be an instance of NodeInterface/'
+            ],
+            [
+                [
+                    'id'            => 'node111',
+                    'name'          => 'myNode',
+                    'nodeFactory'   => 'invalidValue'
+                ],
+                $validationExceptionClass,
+                '/Field \"nodeFactory\" must be a callable/'
             ]
         ];
     }

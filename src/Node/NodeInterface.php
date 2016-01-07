@@ -234,11 +234,54 @@ interface NodeInterface extends SubscriberInterface
     public function hasNode(string $id): bool;
 
     /**
+     * Sets the value of field nodes.
+     *
+     * @param array $nodes - nodes.
+     *
+     * @return NodeInterface
+     */
+    public function setNodes(array $nodes): NodeInterface;
+
+    /**
+     * Adds a node to this graph.
+     *
+     * @param NodeInterface $node - Node.
+     *
+     * @return NodeInterface
+     */
+    public function addNode(NodeInterface $node): NodeInterface;
+
+    /**
+     * Removes a node.
+     *
+     * @param NodeInterface $node - Node.
+     *
+     * @return NodeInterface
+     */
+    public function removeNode(NodeInterface $node): NodeInterface;
+
+    /**
      * Returns how many nodes does this graph have.
      *
      * @return int
      */
     public function countNodes(): int;
+
+    /**
+     * Returns the node factory callable.
+     *
+     * @return callable
+     */
+    public function getNodeFactory(): callable;
+
+    /**
+     * Sets the value of field nodeFactory.
+     *
+     * @param callable $nodeFactory - nodeFactory.
+     *
+     * @return NodeInterface
+     */
+    public function setNodeFactory(callable $nodeFactory): NodeInterface;
 
     /**
      * Returns true if this node supports the following child.

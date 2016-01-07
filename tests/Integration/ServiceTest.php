@@ -129,7 +129,7 @@ class ServiceTest extends AbstractTestCase
                         'graphviz'      => [
                             'relationsAttributes'       => [
                                 'node2'                     => [
-                                    'label'                     => '"Yeah Baby!"'
+                                    'label'                     => '"Testing Label"'
                                 ]
                             ]
                         ]
