@@ -164,11 +164,12 @@ interface NodeInterface extends SubscriberInterface
     /**
      * Removes a child.
      *
-     * @param string $childId - Child ID.
+     * @param string $childId   - Child ID.
+     * @param bool   $setParent - Set parent?
      *
      * @return NodeInterface
      */
-    public function removeChild(string $childId): NodeInterface;
+    public function removeChild(string $childId, bool $setParent = true): NodeInterface;
 
     /**
      * Returns a child by ID.
@@ -194,10 +195,11 @@ interface NodeInterface extends SubscriberInterface
      * Finds children.
      *
      * @param array $filters - Filters.
+     * @param array $options - Options.
      *
-     * @return array
+     * @return array|NodeInterface
      */
-    public function findChildren(array $filters = []): array;
+    public function findChildren(array $filters = []);
 
     /**
      * Returns count of children.
@@ -234,15 +236,6 @@ interface NodeInterface extends SubscriberInterface
     public function hasNode(string $id): bool;
 
     /**
-     * Sets the value of field nodes.
-     *
-     * @param array $nodes - nodes.
-     *
-     * @return NodeInterface
-     */
-    public function setNodes(array $nodes): NodeInterface;
-
-    /**
      * Adds a node to this graph.
      *
      * @param NodeInterface $node - Node.
@@ -266,22 +259,6 @@ interface NodeInterface extends SubscriberInterface
      * @return int
      */
     public function countNodes(): int;
-
-    /**
-     * Returns the node factory callable.
-     *
-     * @return callable
-     */
-    public function getNodeFactory(): callable;
-
-    /**
-     * Sets the value of field nodeFactory.
-     *
-     * @param callable $nodeFactory - nodeFactory.
-     *
-     * @return NodeInterface
-     */
-    public function setNodeFactory(callable $nodeFactory): NodeInterface;
 
     /**
      * Returns true if this node supports the following child.
@@ -370,11 +347,11 @@ interface NodeInterface extends SubscriberInterface
     /**
      * Removes a subscriber.
      *
-     * @param string $id - Subscriber ID.
+     * @param string|SubscriberInterface $idOrSubscriber - Subscriber or ID.
      *
      * @return NodeInterface
      */
-    public function removeSubscriber(string $id): NodeInterface;
+    public function removeSubscriber($idOrSubscriber): NodeInterface;
 
     /**
      * Fires an event. Subscribers gets notified about this event.

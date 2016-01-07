@@ -290,11 +290,16 @@ class Node implements NodeInterface
             throw ParentTypeNotSupportedException::create($this, $parent);
         }
 
+        $this->notifySubscribers(
+            self::EVENT_SET_PARENT,
+            ['oldParent' => $this->_parent, 'newParent' => $parent, 'child' => $this]
+        );
+
         $oldParent = $this->_parent;
 
         if ($setParentsChild) {
             if ($oldParent) {
-                $oldParent->removeChild($this->getId());
+                $oldParent->removeChild($this->getId(), false);
             }
 
             if ($parent) {
@@ -303,11 +308,6 @@ class Node implements NodeInterface
         }
 
         $this->_parent = $parent;
-
-        $this->notifySubscribers(
-            self::EVENT_SET_PARENT,
-            ['oldParent' => $oldParent, 'newParent' => $parent, 'child' => $this]
-        );
 
         return $this;
     }
@@ -382,16 +382,19 @@ class Node implements NodeInterface
     /**
      * Removes a child.
      *
-     * @param string $childId - Child ID.
+     * @param string $childId   - Child ID.
+     * @param bool   $setParent - Set parent?
      *
      * @return NodeInterface
      */
-    public function removeChild(string $childId): NodeInterface
+    public function removeChild(string $childId, bool $setParent = true): NodeInterface
     {
         if ($this->hasChild($childId)) {
             $child = $this->getChild($childId);
 
-            $child->setParent(null, false);
+            if ($setParent) {
+                $child->setParent(null, false);
+            }
 
             unset($this->_children[$childId]);
 
@@ -443,42 +446,47 @@ class Node implements NodeInterface
      * Finds children.
      *
      * @param array $filters - Filters.
+     * @param array $options - Options.
      *
-     * @return array
+     * @return array|NodeInterface
      */
-    public function findChildren(array $filters = [], array $options = []): array
+    public function findChildren(array $filters = [], array $options = [])
     {
         $options = array_replace(
             [
-                'returnAtFirstResult'     => false
+                'returnFirstResult'     => false
             ],
             $options
         );
-        $result = [];
 
-        /** @var NodeInterface $child */
-        foreach ($this->getChildren() as $child) {
-            foreach ($filters as $f => $v) {
-                $method = 'get'.ucfirst($f);
+        if (empty($filters)) {
+            $result = array_values($this->_nodes);
+        } else if (count($filters) === 1
+            && isset($filters['id'])
+        ) {
+            $result = $this->hasNode($filters['id']) ?
+                [$this->getNode($filters['id'])] :
+                [];
+        } else {
+            $result = [];
 
-                if (!method_exists($child, $method) || $child->$method() !== $v) {
-                    continue 2;
+            /** @var NodeInterface $child */
+            foreach ($this->getNodes() as $child) {
+                foreach ($filters as $f => $v) {
+                    $method = 'get'.ucfirst($f);
+
+                    if (!method_exists($child, $method) || $child->$method() !== $v) {
+                        continue 2;
+                    }
                 }
+
+                $result[] = $child;
             }
-
-            $result[] = $child;
-
-            if ($options['returnFirstResult']) {
-                return $result;
-            }
-
-            $result = array_merge(
-                $result,
-                $child->findChildren($filters)
-            );
         }
 
-        return $result;
+        return $options['returnFirstResult'] && $result ?
+            $result[0] :
+            $result;
     }
 
     /**
@@ -532,24 +540,6 @@ class Node implements NodeInterface
     }
 
     /**
-     * Sets the value of field nodes.
-     *
-     * @param array $nodes - nodes.
-     *
-     * @return NodeInterface
-     */
-    public function setNodes(array $nodes): NodeInterface
-    {
-        $this->_nodes = [];
-
-        foreach ($nodes as $node) {
-            $this->addNode($node);
-        }
-
-        return $this;
-    }
-
-    /**
      * Adds a node to this graph.
      *
      * @param NodeInterface $node - Node.
@@ -596,30 +586,6 @@ class Node implements NodeInterface
     }
 
     /**
-     * Returns the node factory callable.
-     *
-     * @return callable
-     */
-    public function getNodeFactory(): callable
-    {
-        return $this->_nodeFactory;
-    }
-
-    /**
-     * Sets the value of field nodeFactory.
-     *
-     * @param callable $nodeFactory - nodeFactory.
-     *
-     * @return NodeInterface
-     */
-    public function setNodeFactory(callable $nodeFactory): NodeInterface
-    {
-        $this->_nodeFactory = $nodeFactory;
-
-        return $this;
-    }
-
-    /**
      * Initializes the node.
      *
      * @param array $data - Data.
@@ -636,6 +602,8 @@ class Node implements NodeInterface
         }
 
         $this->setId($data['id']);
+
+        $this->addSubscriber($this);
 
         if (isset($data['name'])) {
             if (!is_string($data['name']) || $data['name'] === '') {
@@ -665,35 +633,19 @@ class Node implements NodeInterface
             $this->setParent($data['parent']);
         }
 
-        $this->addSubscriber($this);
-
-        if (isset($data['nodeFactory'])) {
-            if (!is_callable($data['nodeFactory'])) {
-                throw ValidationException::create(
-                    'Field "nodeFactory" must be a callable.'
-                );
-            }
-        } else {
-            $data['nodeFactory'] = function(array $data, array $options) {
-                return new Node($data, $options);
-            };
-        }
-
-        $this->setNodeFactory($data['nodeFactory']);
-
         if (isset($data['children'])) {
             if (!is_array($data['children'])) {
                 throw ValidationException::create('Field "children" must be an array.');
             }
 
-            foreach ($data['children'] as $nodeData) {
-                if (!is_array($nodeData)) {
-                    throw ValidationException::create('Field "children" must be an array of arrays.');
+            foreach ($data['children'] as $node) {
+                if (!is_object($node) || !($node instanceof NodeInterface)) {
+                    throw ValidationException::create(
+                        'Field "children" must be an array of NodeInterface instances.'
+                    );
                 }
 
-                $nodeData['parent'] = $this;
-
-                $node = $this->createNode($nodeData, $options);
+                $node->setParent($this);
 
                 $this->addChild($node);
             }
@@ -878,12 +830,25 @@ class Node implements NodeInterface
     /**
      * Removes a subscriber.
      *
-     * @param string $id - Subscriber ID.
+     * @param string|SubscriberInterface $idOrSubscriber - Subscriber or ID.
      *
      * @return NodeInterface
      */
-    public function removeSubscriber(string $id): NodeInterface
+    public function removeSubscriber($idOrSubscriber): NodeInterface
     {
+        if (!is_string($idOrSubscriber)
+            && (!is_object($idOrSubscriber) || !($idOrSubscriber instanceof SubscriberInterface))
+        ) {
+            throw new \InvalidArgumentException(
+                'Argument "$idOrSubscriber" must be a string or an instance of '.
+                'IronEdge\Component\Graph\Event\SubscriberInterface.'
+            );
+        }
+
+        $id = is_string($idOrSubscriber) ?
+            $idOrSubscriber :
+            $idOrSubscriber->getId();
+
         unset($this->_subscribers[$id]);
 
         return $this;
@@ -912,6 +877,39 @@ class Node implements NodeInterface
                 $node = $eventData['child'];
 
                 $this->removeNode($node);
+
+                break;
+            case self::EVENT_SET_PARENT:
+                /** @var NodeInterface $child */
+                $child = $eventData['child'];
+                /** @var NodeInterface $oldParent */
+                $oldParent = $eventData['oldParent'];
+                /** @var NodeInterface $newParent */
+                $newParent = $eventData['newParent'];
+
+                if ($oldParent || $newParent) {
+                    if ($newParent) {
+                        $parents = $newParent->getParents(true);
+                        $subscriberMethod = 'addSubscriber';
+                        $nodeMethod = 'addNode';
+                    } else {
+                        $parents = $oldParent->getParents(true);
+                        $subscriberMethod = 'removeSubscriber';
+                        $nodeMethod = 'removeNode';
+                    }
+
+                    $nodes = $child->getNodes();
+                    $nodes[] = $child;
+
+                    /** @var NodeInterface $n */
+                    foreach ($nodes as $n) {
+                        /** @var NodeInterface $p */
+                        foreach ($parents as $p) {
+                            $n->$subscriberMethod($p);
+                            $p->$nodeMethod($n);
+                        }
+                    }
+                }
 
                 break;
             default:
@@ -960,22 +958,5 @@ class Node implements NodeInterface
                 null,
             'childrenIds'       => $childrenIds
         ];
-    }
-
-    /**
-     * Creates a node.
-     *
-     * @param array $data    - Data.
-     * @param array $options - Options.
-     *
-     * @throws ValidationException
-     *
-     * @return NodeInterface
-     */
-    public function createNode(array $data, array $options = []): NodeInterface
-    {
-        $factory = $this->getNodeFactory();
-
-        return $factory($data, $options);
     }
 }

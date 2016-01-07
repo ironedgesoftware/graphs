@@ -12,6 +12,7 @@ namespace IronEdge\Component\Graphs;
 
 use IronEdge\Component\Config\Config;
 use IronEdge\Component\Graphs\Exception\InvalidWriterTypeException;
+use IronEdge\Component\Graphs\Exception\ValidationException;
 use IronEdge\Component\Graphs\Export\Response;
 use IronEdge\Component\Graphs\Export\Writer\GraphvizWriter;
 use IronEdge\Component\Graphs\Node\Node;
@@ -24,18 +25,61 @@ use IronEdge\Component\Graphs\Node\NodeInterface;
 class Service
 {
     /**
-     * Creates a graph instance.
+     * This factory is a callable used to instantiate nodes.
      *
-     * @param array $data    - Graph data.
+     * @var callable
+     */
+    private $_nodeFactory;
+
+
+    /**
+     * Service constructor.
+     *
+     * @param array $options - Options.
+     */
+    public function __construct(array $options = [])
+    {
+        $options = array_replace_recursive(
+            [
+                'nodeFactory'           => function(array $data, array $options) {
+                    return new Node($data, $options);
+                }
+            ],
+            $options
+        );
+
+        $this->setNodeFactory($options['nodeFactory']);
+    }
+
+    /**
+     * Creates a node tree.
+     *
+     * @param array $data    - Node data.
      * @param array $options - Options.
      *
-     * @return Node
+     * @throws ValidationException
+     *
+     * @return NodeInterface
      */
-    public function createGraph(array $data, array $options = [])
+    public function create(array $data, array $options = [])
     {
-        $graph = new Node($data, $options);
+        if (isset($data['children'])) {
+            if (!is_array($data['children'])) {
+                throw ValidationException::create('Field "children" must be an array.');
+            }
 
-        return $graph;
+            foreach ($data['children'] as $i => $nodeData) {
+                if (!is_array($nodeData)) {
+                    throw ValidationException::create(
+                        'Field "children" must be an array of arrays.'
+                    );
+                }
+
+                $data['children'][$i] = $this->create($nodeData, $options);
+            }
+        }
+
+        return $this->createNodeInstance($data, $options);
     }
 
     /**
@@ -104,5 +148,54 @@ class Service
         } while (is_file($file));
 
         return $file;
+    }
+
+    /**
+     * Returns the node factory callable.
+     *
+     * @return callable
+     */
+    public function getNodeFactory(): callable
+    {
+        return $this->_nodeFactory;
+    }
+
+    /**
+     * Sets the value of field nodeFactory.
+     *
+     * @param callable $nodeFactory - nodeFactory.
+     *
+     * @return Service
+     */
+    public function setNodeFactory(callable $nodeFactory): Service
+    {
+        $this->_nodeFactory = $nodeFactory;
+
+        return $this;
+    }
+
+    /**
+     * Creates a Node instance through the node factory.
+     *
+     * @param array $data    - Node Data.
+     * @param array $options - Options.
+     *
+     * @throws ValidationException
+     *
+     * @return NodeInterface
+     */
+    protected function createNodeInstance(array $data, array $options = []): NodeInterface
+    {
+        $factory = $this->getNodeFactory();
+
+        $node = $factory($data, $options);
+
+        if (!is_object($node) || !($node instanceof NodeInterface)) {
+            throw ValidationException::create(
+                'Node Factory must return an instance of NodeInterface.'
+            );
+        }
+
+        return $node;
     }
 }

@@ -42,9 +42,9 @@ class ServiceTest extends AbstractTestCase
         $this->skipIfGraphvizIsNotInstalled();
 
         $service = $this->createService();
-        $graph = $service->createGraph($this->getExampleGraphData());
+        $graph = $service->create($this->getExampleGraphData());
 
-        $response = $service->export($graph, ['writer' => 'graphviz', 'path' => '/var/www/html/graphviz.png']);
+        $response = $service->export($graph, ['writer' => 'graphviz', 'path' => $this->getTmpDir().'/graphviz.png']);
 
         $this->assertTrue(is_file($response->getPath()));
     }
@@ -55,7 +55,7 @@ class ServiceTest extends AbstractTestCase
     public function test_export_throwExceptionIfWriterDoesNotExist()
     {
         $service = $this->createService();
-        $graph = $service->createGraph($this->getExampleGraphData());
+        $graph = $service->create($this->getExampleGraphData());
 
         $service->export($graph, ['writer' => 'iDontExist']);
     }

@@ -25,15 +25,114 @@ use IronEdge\Component\Graphs\Test\Unit\AbstractTestCase;
  */
 class NodeTest extends AbstractTestCase
 {
+    public function test_findChildren_ifNodesAreFoundThenReturnThem()
+    {
+        $node = $this->createExampleTree();
+        $nodes = $node->findChildren(['id' => 'node2']);
+
+        $this->assertCount(1, $nodes);
+        $this->assertEquals($node->getNode('node2'), $nodes[0]);
+
+        $nodes = $node->findChildren(['name' => 'someNode']);
+
+        $this->assertCount(2, $nodes);
+        $this->assertEquals($node->getNode('node3'), $nodes[0]);
+        $this->assertEquals($node->getNode('node5'), $nodes[1]);
+
+        $resultNode = $node->findChildren(
+            ['name' => 'someNode'],
+            ['returnFirstResult' => true]
+        );
+
+        $this->assertEquals($node->getNode('node3'), $resultNode);
+
+        $nodes = $node->findChildren();
+
+        $this->assertCount(4, $nodes);
+        $this->assertEquals($node->getNode('node2'), $nodes[0]);
+        $this->assertEquals($node->getNode('node3'), $nodes[1]);
+        $this->assertEquals($node->getNode('node4'), $nodes[2]);
+        $this->assertEquals($node->getNode('node5'), $nodes[3]);
+    }
+
+    public function test_findChildren_ifNoNodesAreFoundReturnEmptyArray()
+    {
+        $node = $this->createExampleTree();
+
+        $this->assertCount(0, $node->findChildren(['iDontExist' => 'value']));
+    }
+
+    public function test_removeSubscriber_throwsExceptionIfArgumentIsInvalid()
+    {
+        $this->setExpectedExceptionRegExp('\InvalidArgumentException');
+
+        $node = $this->createNodeInstance(['id' => 'n1']);
+
+        $node->removeSubscriber([]);
+    }
+
+    public function test_subscribers_shouldBeRegisteredAccordingly()
+    {
+        $node = $this->createNodeInstance(['id' => 'node1']);
+        $node2 = $this->createNodeInstance(['id' => 'node2']);
+        $node3 = $this->createNodeInstance(['id' => 'node3']);
+        $node4 = $this->createNodeInstance(['id' => 'node4']);
+        $node5 = $this->createNodeInstance(['id' => 'node5']);
+
+        $this->assertCount(0, $node->getNodes());
+        $this->assertCount(0, $node2->getNodes());
+        $this->assertCount(0, $node3->getNodes());
+        $this->assertCount(0, $node4->getNodes());
+        $this->assertCount(0, $node5->getNodes());
+
+        $node->addChild($node2);
+
+        $this->assertCount(1, $node->getNodes());
+        $this->assertEquals($node2, $node->getNode('node2'));
+        $this->assertCount(0, $node2->getNodes());
+        $this->assertCount(0, $node3->getNodes());
+        $this->assertCount(0, $node4->getNodes());
+        $this->assertCount(0, $node5->getNodes());
+
+        $node3->setParent($node2);
+
+        $this->assertCount(2, $node->getNodes());
+        $this->assertEquals($node2, $node->getNode('node2'));
+        $this->assertEquals($node3, $node->getNode('node3'));
+        $this->assertCount(1, $node2->getNodes());
+        $this->assertEquals($node3, $node2->getNode('node3'));
+        $this->assertCount(0, $node3->getNodes());
+        $this->assertCount(0, $node4->getNodes());
+        $this->assertCount(0, $node5->getNodes());
+
+        $node2->setParent(null);
+
+        $this->assertCount(0, $node->getNodes());
+        $this->assertCount(1, $node2->getNodes());
+        $this->assertEquals($node3, $node2->getNode('node3'));
+        $this->assertCount(0, $node3->getNodes());
+        $this->assertCount(0, $node4->getNodes());
+        $this->assertCount(0, $node5->getNodes());
+
+        $node2->setParent($node);
+
+        $this->assertCount(2, $node->getNodes());
+        $this->assertEquals($node2, $node->getNode('node2'));
+        $this->assertEquals($node3, $node->getNode('node3'));
+        $this->assertCount(1, $node2->getNodes());
+        $this->assertEquals($node3, $node2->getNode('node3'));
+        $this->assertCount(0, $node3->getNodes());
+        $this->assertCount(0, $node4->getNodes());
+        $this->assertCount(0, $node5->getNodes());
+    }
+
     public function test_setSubscribers_clearsOriginalSubscribersAndSetsNewOnes()
     {
         $node = $this->createNodeInstance(
             [
                 'id'            => 'node1',
                 'children'      => [
-                    [
-                        'id'        => 'node2'
-                    ]
+                    new Node(['id' => 'node2'])
                 ]
             ]
         );
@@ -91,9 +190,7 @@ class NodeTest extends AbstractTestCase
             [
                 'id'            => 'node1',
                 'children'      => [
-                    [
-                        'id'        => 'node2'
-                    ]
+                    new Node(['id' => 'node2'])
                 ]
             ]
         );
@@ -135,14 +232,14 @@ class NodeTest extends AbstractTestCase
             [
                 'id'            => 'myGraph',
                 'children'      => [
-                    [
-                        'id'            => 'node1',
-                        'children'      => [
-                            [
-                                'id'            => 'node2'
+                    new Node(
+                        [
+                            'id' => 'node1',
+                            'children'  => [
+                                new Node(['id' => 'node2'])
                             ]
                         ]
-                    ]
+                    )
                 ]
             ]
         );
@@ -488,19 +585,9 @@ class NodeTest extends AbstractTestCase
                 '/Field \"children\" must be an array\./'
             ],
             [
-                ['id' => 'myId', 'children' => ['invalidElement']],
+                ['id' => 'myId', 'parent' => new Node(['id' => 'node2']), 'children' => ['invalidElement']],
                 null,
-                '/Field \"children\" must be an array of arrays/'
-            ],
-            [
-                ['id' => 'myId', 'children' => [[]]],
-                null,
-                '/Field \"id\" must be a non\-empty string\./'
-            ],
-            [
-                ['id' => 'myId', 'children' => [['id' => '']]],
-                null,
-                '/Field \"id\" must be a non\-empty string\./'
+                '/Field \"children\" must be an array of NodeInterface instances/'
             ]
         ];
     }
@@ -543,15 +630,6 @@ class NodeTest extends AbstractTestCase
                 ],
                 $validationExceptionClass,
                 '/Field \"parent\" must be an instance of NodeInterface/'
-            ],
-            [
-                [
-                    'id'            => 'node111',
-                    'name'          => 'myNode',
-                    'nodeFactory'   => 'invalidValue'
-                ],
-                $validationExceptionClass,
-                '/Field \"nodeFactory\" must be a callable/'
             ]
         ];
     }
@@ -563,7 +641,7 @@ class NodeTest extends AbstractTestCase
      */
     protected function createNodeInstance(array $data = [], array $options = []): Node
     {
-        return new Node($data);
+        return new Node($data, $options);
     }
 
     /**
@@ -572,6 +650,20 @@ class NodeTest extends AbstractTestCase
     protected function createCustomNodeInstance(array $data): Node
     {
         return new CustomNode($data);
+    }
+
+    protected function createExampleTree()
+    {
+        $node = $this->createNodeInstance(['id' => 'node1']);
+        $node2 = $this->createNodeInstance(['id' => 'node2', 'name' => 'anotherNode']);
+        $node3 = $this->createNodeInstance(['id' => 'node3', 'name' => 'someNode']);
+        $node4 = $this->createNodeInstance(['id' => 'node4']);
+        $node5 = $this->createNodeInstance(['id' => 'node5', 'name' => 'someNode']);
+
+        $node->setChildren([$node2, $node3]);
+        $node3->setChildren([$node4, $node5]);
+
+        return $node;
     }
 }
 
