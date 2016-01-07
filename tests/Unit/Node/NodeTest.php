@@ -23,6 +23,62 @@ use IronEdge\Component\Graphs\Test\Unit\AbstractTestCase;
  */
 class NodeTest extends AbstractTestCase
 {
+    /**
+     * @expectedException \IronEdge\Component\Graphs\Exception\ValidationException
+     * @dataProvider invalidIdDataProvider
+     */
+    public function test_initialize_ifIdIsInvalidThenThrowException(array $data)
+    {
+        $this->createNodeInstance($data);
+    }
+
+    /**
+     * @dataProvider invalidNodesDataProvider
+     */
+    public function test_initialize_ifNodesAreInvalidThenThrowException(
+        array $data,
+        $expectedException = null,
+        $expectedExceptionRegex = ''
+    ) {
+        $expectedException = $expectedException === null ?
+            get_class(new ValidationException()) :
+            $expectedException;
+
+        $this->setExpectedExceptionRegExp($expectedException, $expectedExceptionRegex);
+
+        $this->createNodeInstance($data);
+    }
+
+    public function test_initialize_initializeTheGraph()
+    {
+        $graph = $this->createNodeInstance(
+            [
+                'id'            => 'myGraph',
+                'children'      => [
+                    [
+                        'id'            => 'node1',
+                        'children'      => [
+                            [
+                                'id'            => 'node2'
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+        );
+
+        $this->assertEquals(1, $graph->countChildren());
+        $this->assertEquals(2, $graph->countNodes());
+        $this->assertEquals('myGraph', $graph->getId());
+
+        $nodes = $graph->getNodes();
+
+        $this->assertEquals('node1', $nodes['node1']->getId());
+        $this->assertEquals('node2', $nodes['node2']->getId());
+        $this->assertCount(1, $nodes['node1']->getChildren());
+        $this->assertEquals('node2', $nodes['node1']->getChild('node2')->getId());
+    }
+
     public function test_setParent_shouldRemoveParentsChild()
     {
         $data = [
@@ -323,6 +379,52 @@ class NodeTest extends AbstractTestCase
 
     // Data Providers
 
+    public function invalidIdDataProvider()
+    {
+        return [
+            [
+                []
+            ],
+            [
+                ['id' => '']
+            ],
+            [
+                ['id' => []]
+            ]
+        ];
+    }
+
+    public function invalidNodesDataProvider()
+    {
+        return [
+            [
+                ['id' => 'myId', 'children' => ''],
+                null,
+                '/Field \"children\" must be an array\./'
+            ],
+            [
+                ['id' => 'myId', 'children' => 'children'],
+                null,
+                '/Field \"children\" must be an array\./'
+            ],
+            [
+                ['id' => 'myId', 'children' => ['invalidElement']],
+                null,
+                '/Field \"children\" must be an array of arrays/'
+            ],
+            [
+                ['id' => 'myId', 'children' => [[]]],
+                null,
+                '/Field \"id\" must be a non\-empty string\./'
+            ],
+            [
+                ['id' => 'myId', 'children' => [['id' => '']]],
+                null,
+                '/Field \"id\" must be a non\-empty string\./'
+            ]
+        ];
+    }
+
     public function initializeExceptionsDataProvider()
     {
         $validationException = new ValidationException();
@@ -352,6 +454,15 @@ class NodeTest extends AbstractTestCase
                 ],
                 $validationExceptionClass,
                 '/Field \"metadata\" must be an array\./'
+            ],
+            [
+                [
+                    'id'            => 'node111',
+                    'name'          => 'myNode',
+                    'parent'        => 'invalidValue'
+                ],
+                $validationExceptionClass,
+                '/Field \"parent\" must be an instance of NodeInterface/'
             ]
         ];
     }

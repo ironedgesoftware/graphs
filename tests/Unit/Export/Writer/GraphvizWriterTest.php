@@ -14,7 +14,7 @@ namespace IronEdge\Component\Graphs\Test\Unit\Export\Graph;
 
 use IronEdge\Component\Graphs\Exception\ValidationException;
 use IronEdge\Component\Graphs\Export\Writer\GraphvizWriter;
-use IronEdge\Component\Graphs\Graph\Graph;
+use IronEdge\Component\Graphs\Node\Node;
 use IronEdge\Component\Graphs\Test\Unit\AbstractTestCase;
 
 
@@ -38,13 +38,13 @@ class GraphvizWriterTest extends AbstractTestCase
         $writer->write([], []);
     }
 
-    public function test_write_ifGraphIsNotReceivedThenThrowException()
+    public function test_write_ifNodeIsNotReceivedThenThrowException()
     {
         $validationException = new ValidationException();
 
         $this->setExpectedExceptionRegExp(
             get_class($validationException),
-            '/Data attribute \"graph\" must be an instance of/'
+            '/Data attribute \"node\" must be an instance of/'
         );
 
         $writer = $this->createInstance();
@@ -72,9 +72,9 @@ class GraphvizWriterTest extends AbstractTestCase
             ->expects($this->once())
             ->method('isDotInstalled')
             ->will($this->returnValue(true));
-        $graph = new Graph(['id' => 'test'], ['validateMinChildren' => false]);
+        $node = new Node(['id' => 'test'], ['validateMinChildren' => false]);
 
-        $writer->write(['graph' => $graph], []);
+        $writer->write(['node' => $node], []);
     }
 
 
@@ -85,7 +85,7 @@ class GraphvizWriterTest extends AbstractTestCase
      * @param array $data
      * @param array $options
      *
-     * @return Graph
+     * @return GraphvizWriter
      */
     protected function createInstance(): GraphvizWriter
     {

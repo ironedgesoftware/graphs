@@ -14,8 +14,6 @@ use IronEdge\Component\Config\Writer\WriterInterface;
 use IronEdge\Component\Graphs\Exception\ExportException;
 use IronEdge\Component\Graphs\Exception\ValidationException;
 use IronEdge\Component\Graphs\Export\Utils;
-use IronEdge\Component\Graphs\Graph\Graph;
-use IronEdge\Component\Graphs\Graph\GraphInterface;
 use IronEdge\Component\Graphs\Node\NodeInterface;
 
 
@@ -78,9 +76,9 @@ class GraphvizWriter implements WriterInterface
             );
         }
 
-        if (!isset($data['graph']) || !($data['graph'] instanceof Graph)) {
+        if (!isset($data['node']) || !($data['node'] instanceof NodeInterface)) {
             throw ValidationException::create(
-                'Data attribute "graph" must be an instance of IronEdge\Component\Graphs\Graph\Graph.'
+                'Data attribute "node" must be an instance of IronEdge\Component\Graphs\Node\NodeInterface.'
             );
         }
 
@@ -91,8 +89,8 @@ class GraphvizWriter implements WriterInterface
             );
         }
 
-        /** @var Graph $graph */
-        $graph = $data['graph'];
+        /** @var NodeInterface $graph */
+        $graph = $data['node'];
         $file = $options['path'];
 
         $graphvizCode = 'digraph ' . $graph->getId() . ' {' . PHP_EOL;
@@ -106,15 +104,14 @@ class GraphvizWriter implements WriterInterface
             $graphvizCode .= PHP_EOL;
         }
 
-        $processedNodes = [];
-        $graphvizCode .= $this->generateNodeCode($graph, true, $processedNodes);
+        $graphvizCode .= $this->generateNodeCode($graph);
 
         $graphvizCode .= '}';
 
         $this->generateGraphvizOutputFile($graphvizCode, $file, ['targetType' => 'png']);
     }
 
-    public function generateNodeCode(NodeInterface $node, bool $onlyChildren, array &$processedNodes)
+    public function generateNodeCode(NodeInterface $node, array &$processedNodes = [])
     {
         if (isset($processedNodes[$node->getId()])) {
             return '';
@@ -122,18 +119,16 @@ class GraphvizWriter implements WriterInterface
 
         $graphvizCode = '';
 
-        if (!$onlyChildren) {
-            $graphvizCode .= '  '.$this->generateNodeAttributesCode($node).PHP_EOL.PHP_EOL;
-            $graphvizCode .= '  '.$this->generateNodeRelationsCode($node).PHP_EOL.PHP_EOL;
-        }
+        $graphvizCode .= '  '.$this->generateNodeAttributesCode($node).PHP_EOL.PHP_EOL;
+        $graphvizCode .= '  '.$this->generateNodeRelationsCode($node).PHP_EOL.PHP_EOL;
 
-        $children = $node instanceof GraphInterface && !$node->getParent() ?
-            $node->getNodes() :
-            $node->getChildren();
+        $children = $node->getChildren();
 
         /** @var NodeInterface $node */
         foreach ($children as $n) {
-            $graphvizCode .= $this->generateNodeCode($n, false, $processedNodes);
+            if (!isset($processedNodes[$node->getId()])) {
+                $graphvizCode .= $this->generateNodeCode($n, $processedNodes);
+            }
         }
 
         $processedNodes[$node->getId()] = true;
@@ -169,11 +164,11 @@ class GraphvizWriter implements WriterInterface
             return '';
         }
 
-        $code = $node->getId();
+        $code = '';
 
         /** @var NodeInterface $child */
         foreach ($children as $child) {
-            $code .= ' -> '.$child->getId();
+            $code .= '  '.$node->getId().' -> '.$child->getId();
             $relationsAttributes = $node->getMetadataAttr('graphviz.relationsAttributes.'.$child->getId(), []);
 
             if ($relationsAttributes) {

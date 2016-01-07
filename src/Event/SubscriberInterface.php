@@ -17,13 +17,6 @@ namespace IronEdge\Component\Graphs\Event;
 interface SubscriberInterface
 {
     /**
-     * Returns the ID of the subscriber.
-     *
-     * @return string
-     */
-    public function getId(): string;
-
-    /**
      * This method is called when an event is fired.
      *
      * @param string $id  - Event ID.

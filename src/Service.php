@@ -14,8 +14,8 @@ use IronEdge\Component\Config\Config;
 use IronEdge\Component\Graphs\Exception\InvalidWriterTypeException;
 use IronEdge\Component\Graphs\Export\Response;
 use IronEdge\Component\Graphs\Export\Writer\GraphvizWriter;
-use IronEdge\Component\Graphs\Graph\Graph;
-use IronEdge\Component\Graphs\Graph\GraphInterface;
+use IronEdge\Component\Graphs\Node\Node;
+use IronEdge\Component\Graphs\Node\NodeInterface;
 
 
 /**
@@ -29,11 +29,11 @@ class Service
      * @param array $data    - Graph data.
      * @param array $options - Options.
      *
-     * @return Graph
+     * @return Node
      */
     public function createGraph(array $data, array $options = [])
     {
-        $graph = new Graph($data);
+        $graph = new Node($data, $options);
 
         return $graph;
     }
@@ -41,14 +41,14 @@ class Service
     /**
      * Exports a graph to a graphviz image.
      *
-     * @param GraphInterface         $graph   - Graph.
-     * @param array                  $options - Options.
+     * @param NodeInterface $node    - Graph.
+     * @param array         $options - Options.
      *
      * @throws InvalidWriterTypeException
      *
      * @return Response
      */
-    public function export(GraphInterface $graph, array $options = [])
+    public function export(NodeInterface $node, array $options = [])
     {
         $options = array_replace_recursive(
             [
@@ -71,7 +71,7 @@ class Service
 
         $config = new Config(
             [
-                'graph'             => $graph
+                'node'              => $node
             ],
             [
                 'writer'            => $options['writer']

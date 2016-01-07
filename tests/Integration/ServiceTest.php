@@ -83,55 +83,54 @@ class ServiceTest extends AbstractTestCase
     {
         return [
             'id'            => 'myGraph',
-            'nodes'         => [
+            'children'      => [
                 [
                     'id'        => 'node1',
-                    'isRootNode'    => true,
+                    'children'  => [
+                        [
+                            'id'        => 'node2',
+                            'children'  => [
+                                [
+                                    'id'            => 'graph1',
+                                    'nodeType'      => 'graph',
+                                    'children'      => [
+                                        [
+                                            'id'            => 'node3',
+                                            'children'      => [
+                                                [
+                                                    'id'            => 'node4',
+                                                    'metadata'  => [
+                                                        'graphviz'      => [
+                                                            'nodeAttributes'    => [
+                                                                'shape'             => 'circle',
+                                                                'style'             => 'filled',
+                                                                'color'             => '".7 .3 1.0"'
+                                                            ]
+                                                        ]
+                                                    ]
+                                                ]
+                                            ]
+                                        ]
+                                    ],
+                                    'metadata'  => [
+                                        'graphviz'      => [
+                                            'nodeAttributes'    => [
+                                                'shape'             => 'circle',
+                                                'style'             => 'filled',
+                                                'color'             => '".7 .3 1.0"'
+                                            ]
+                                        ]
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ],
                     'metadata'      => [
                         'graphviz'      => [
                             'relationsAttributes'       => [
                                 'node2'                     => [
                                     'label'                     => '"Yeah Baby!"'
                                 ]
-                            ]
-                        ]
-                    ]
-                ],
-                [
-                    'id'        => 'node2',
-                    'parentId'  => 'node1'
-                ],
-                [
-                    'id'            => 'node3',
-                    'parentId'      => 'node2',
-                    'nodeType'      => 'graph',
-                    'nodes'             => [
-                        [
-                            'id'            => 'node4',
-                            'childrenIds'   => [
-                                'node5'
-                            ],
-                            'isRootNode'    => true
-                        ],
-                        [
-                            'id'            => 'node5',
-                            'metadata'  => [
-                                'graphviz'      => [
-                                    'nodeAttributes'    => [
-                                        'shape'             => 'circle',
-                                        'style'             => 'filled',
-                                        'color'             => '".7 .3 1.0"'
-                                    ]
-                                ]
-                            ]
-                        ]
-                    ],
-                    'metadata'  => [
-                        'graphviz'      => [
-                            'nodeAttributes'    => [
-                                'shape'             => 'circle',
-                                'style'             => 'filled',
-                                'color'             => '".7 .3 1.0"'
                             ]
                         ]
                     ]

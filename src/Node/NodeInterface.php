@@ -14,9 +14,10 @@ namespace IronEdge\Component\Graphs\Node;
 use IronEdge\Component\CommonUtils\Data\Data;
 use IronEdge\Component\Graphs\Event\SubscriberInterface;
 use IronEdge\Component\Graphs\Exception\ChildTypeNotSupportedException;
+use IronEdge\Component\Graphs\Exception\NodeDoesNotExistException;
 use IronEdge\Component\Graphs\Exception\ValidationException;
 
-interface NodeInterface
+interface NodeInterface extends SubscriberInterface
 {
     /**
      * Returns the value of field _id.
@@ -76,9 +77,9 @@ interface NodeInterface
     /**
      * Sets a metadata attribute.
      *
-     * @param string $attr    - Attribute.
-     * @param mixed  $value   - Value.
-     * @param array  $options - Options.
+     * @param string $attr - Attribute.
+     * @param mixed $value - Value.
+     * @param array $options - Options.
      *
      * @return $this
      */
@@ -87,9 +88,9 @@ interface NodeInterface
     /**
      * Returns a metadata attribute.
      *
-     * @param string $attr         - Attribute.
-     * @param mixed  $defaultValue - Default value.
-     * @param array  $options      - Options.
+     * @param string $attr - Attribute.
+     * @param mixed $defaultValue - Default value.
+     * @param array $options - Options.
      *
      * @return mixed
      */
@@ -112,10 +113,19 @@ interface NodeInterface
     public function getParent();
 
     /**
+     * Returns an array of parents, and optionally this node.
+     *
+     * @param bool $includeThisNode - Include this node in the array?
+     *
+     * @return array
+     */
+    public function getParents($includeThisNode = false): array;
+
+    /**
      * Sets the value of field parent.
      *
-     * @param NodeInterface $parent          - Parent.
-     * @param bool          $setParentsChild - Set parent's child.
+     * @param NodeInterface $parent - Parent.
+     * @param bool $setParentsChild - Set parent's child.
      *
      * @return NodeInterface
      */
@@ -124,9 +134,11 @@ interface NodeInterface
     /**
      * Returns the value of field _children.
      *
+     * @param array $options - Options.
+     *
      * @return array
      */
-    public function getChildren(): array;
+    public function getChildren(array $options = []): array;
 
     /**
      * Sets the value of field children.
@@ -140,8 +152,8 @@ interface NodeInterface
     /**
      * Adds a child to this node.
      *
-     * @param NodeInterface $child          - Child.
-     * @param bool          $setChildParent - Set child's parent.
+     * @param NodeInterface $child - Child.
+     * @param bool $setChildParent - Set child's parent.
      *
      * @throws ChildTypeNotSupportedException
      *
@@ -179,11 +191,54 @@ interface NodeInterface
     public function hasChild(string $id): bool;
 
     /**
+     * Finds children.
+     *
+     * @param array $filters - Filters.
+     *
+     * @return array
+     */
+    public function findChildren(array $filters = []): array;
+
+    /**
      * Returns count of children.
      *
      * @return int
      */
     public function countChildren(): int;
+
+    /**
+     * Returns the value of field _nodes.
+     *
+     * @return array
+     */
+    public function getNodes(): array;
+
+    /**
+     * Returns the node with ID $id.
+     *
+     * @param string $id - Node ID.
+     *
+     * @throws NodeDoesNotExistException
+     *
+     * @return NodeInterface
+     */
+    public function getNode(string $id): NodeInterface;
+
+    /**
+     * Returns true if node with ID $id is set on this graph.
+     *
+     * @param string $id - Node ID.
+     *
+     * @return bool
+     */
+    public function hasNode(string $id): bool;
+
+    /**
+     * Returns how many nodes does this graph have.
+     *
+     * @return int
+     */
+    public function countNodes(): int;
 
     /**
      * Returns true if this node supports the following child.
@@ -270,14 +325,23 @@ interface NodeInterface
     public function addSubscriber(SubscriberInterface $subscriber): NodeInterface;
 
     /**
+     * Removes a subscriber.
+     *
+     * @param string $id - Subscriber ID.
+     *
+     * @return NodeInterface
+     */
+    public function removeSubscriber(string $id): NodeInterface;
+
+    /**
      * Fires an event. Subscribers gets notified about this event.
      *
-     * @param string $id  - Event ID.
-     * @param array $data - Event Data.
+     * @param string $eventId   - Event ID.
+     * @param array  $eventData - Event Data.
      *
      * @return void
      */
-    public function notifySubscribers(string $id, array $data);
+    public function notifySubscribers(string $eventId, array $eventData);
 
     /**
      * Returns default metadata.

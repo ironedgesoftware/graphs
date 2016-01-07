@@ -14,6 +14,7 @@ use IronEdge\Component\CommonUtils\Data\Data;
 use IronEdge\Component\Graphs\Event\SubscriberInterface;
 use IronEdge\Component\Graphs\Exception\ChildDoesNotExistException;
 use IronEdge\Component\Graphs\Exception\ChildTypeNotSupportedException;
+use IronEdge\Component\Graphs\Exception\NodeDoesNotExistException;
 use IronEdge\Component\Graphs\Exception\ParentTypeNotSupportedException;
 use IronEdge\Component\Graphs\Exception\ValidationException;
 
@@ -21,8 +22,13 @@ use IronEdge\Component\Graphs\Exception\ValidationException;
 /**
  * @author Gustavo Falco <comfortablynumb84@gmail.com>
  */
-class Node implements NodeInterface, SubscriberInterface
+class Node implements NodeInterface
 {
+    const EVENT_ADD_CHILD               = 'add_child';
+    const EVENT_REMOVE_CHILD            = 'remove_child';
+    const EVENT_SET_PARENT              = 'set_parent';
+
+
     /**
      * Field _id.
      *
@@ -65,6 +71,14 @@ class Node implements NodeInterface, SubscriberInterface
      */
     private $_subscribers = [];
 
+    /**
+     * Field _nodes.
+     *
+     * @var array
+     */
+    private $_nodes = [];
+
+
 
     /**
      * Node constructor.
@@ -75,6 +89,7 @@ class Node implements NodeInterface, SubscriberInterface
     public function __construct(array $data = [], array $options = [])
     {
         $this->initialize($data, $options);
+        $this->validate($options);
     }
 
     /**
@@ -229,6 +244,30 @@ class Node implements NodeInterface, SubscriberInterface
     }
 
     /**
+     * Returns an array of parents, and optionally this node.
+     *
+     * @param bool $includeThisNode - Include this node in the array?
+     *
+     * @return array
+     */
+    public function getParents($includeThisNode = false): array
+    {
+        $parents = [];
+
+        if ($includeThisNode) {
+            $parents[] = $this;
+        }
+
+        $current = $this;
+
+        while ($current = $current->getParent()) {
+            $parents[] = $current;
+        }
+
+        return $parents;
+    }
+
+    /**
      * Sets the value of field parent.
      *
      * @param NodeInterface $parent - Parent.
@@ -245,18 +284,21 @@ class Node implements NodeInterface, SubscriberInterface
         }
 
         $oldParent = $this->_parent;
-        $this->_parent = $parent;
 
         if ($setParentsChild) {
+            if ($oldParent) {
+                $oldParent->removeChild($this->getId());
+            }
+
             if ($parent) {
                 $parent->addChild($this, false);
-            } else if ($oldParent) {
-                $oldParent->removeChild($this->getId());
             }
         }
 
+        $this->_parent = $parent;
+
         $this->notifySubscribers(
-            'set_parent',
+            self::EVENT_SET_PARENT,
             ['oldParent' => $oldParent, 'newParent' => $parent, 'child' => $this]
         );
 
@@ -266,9 +308,11 @@ class Node implements NodeInterface, SubscriberInterface
     /**
      * Returns the value of field _children.
      *
+     * @param array $options - Options.
+     *
      * @return array
      */
-    public function getChildren(): array
+    public function getChildren(array $options = []): array
     {
         return $this->_children;
     }
@@ -282,7 +326,9 @@ class Node implements NodeInterface, SubscriberInterface
      */
     public function setChildren(array $children): NodeInterface
     {
-        $this->_children = [];
+        foreach ($this->getChildren() as $node) {
+            $this->removeChild($node->getId());
+        }
 
         foreach ($children as $child) {
             $this->addChild($child);
@@ -313,7 +359,15 @@ class Node implements NodeInterface, SubscriberInterface
             $child->setParent($this, false);
         }
 
-        $this->notifySubscribers('add_child', ['parent' => $this, 'child' => $child]);
+        /** @var NodeInterface $parent */
+        foreach ($this->getParents(true) as $parent) {
+            $child->addSubscriber($parent);
+        }
+
+        $this->notifySubscribers(
+            self::EVENT_ADD_CHILD,
+            ['parent' => $this, 'child' => $child]
+        );
 
         return $this;
     }
@@ -334,7 +388,15 @@ class Node implements NodeInterface, SubscriberInterface
 
             unset($this->_children[$childId]);
 
-            $this->notifySubscribers('remove_child', ['parent' => $this, 'child' => $child]);
+            $this->notifySubscribers(
+                self::EVENT_REMOVE_CHILD,
+                ['parent' => $this, 'child' => $child]
+            );
+
+            /** @var NodeInterface $parent */
+            foreach ($this->getParents(true) as $parent) {
+                $child->removeSubscriber($parent->getId());
+            }
         }
 
         return $this;
@@ -371,13 +433,105 @@ class Node implements NodeInterface, SubscriberInterface
     }
 
     /**
+     * Finds children.
+     *
+     * @param array $filters - Filters.
+     *
+     * @return array
+     */
+    public function findChildren(array $filters = [], array $options = []): array
+    {
+        $options = array_replace(
+            [
+                'returnAtFirstResult'     => false
+            ],
+            $options
+        );
+        $result = [];
+
+        /** @var NodeInterface $child */
+        foreach ($this->getChildren() as $child) {
+            foreach ($filters as $f => $v) {
+                $method = 'get'.ucfirst($f);
+
+                if (!method_exists($child, $method) || $child->$method() !== $v) {
+                    continue 2;
+                }
+            }
+
+            $result[] = $child;
+
+            if ($options['returnFirstResult']) {
+                return $result;
+            }
+
+            $result = array_merge(
+                $result,
+                $child->findChildren($filters)
+            );
+        }
+
+        return $result;
+    }
+
+    /**
      * Returns count of children.
      *
      * @return int
      */
     public function countChildren(): int
     {
-        return count($this->getChildren());
+        return count($this->_children);
+    }
+
+    /**
+     * Returns the value of field _nodes.
+     *
+     * @return array
+     */
+    public function getNodes(): array
+    {
+        return $this->_nodes;
+    }
+
+    /**
+     * Returns the node with ID $id.
+     *
+     * @param string $id - Node ID.
+     *
+     * @throws NodeDoesNotExistException
+     *
+     * @return NodeInterface
+     */
+    public function getNode(string $id): NodeInterface
+    {
+        if (!$this->hasNode($id)) {
+            throw NodeDoesNotExistException::create($id);
+        }
+
+        return $this->_nodes[$id];
+    }
+
+    /**
+     * Returns true if node with ID $id is set on this graph.
+     *
+     * @param string $id - Node ID.
+     *
+     * @return bool
+     */
+    public function hasNode(string $id): bool
+    {
+        return isset($this->_nodes[$id]);
+    }
+
+    /**
+     * Returns how many nodes does this graph have.
+     *
+     * @return int
+     */
+    public function countNodes(): int
+    {
+        return count($this->_nodes);
     }
 
     /**
@@ -414,7 +568,37 @@ class Node implements NodeInterface, SubscriberInterface
             $this->setMetadata($data['metadata']);
         }
 
-        $this->validate($options);
+        if (isset($data['parent'])) {
+            if (!is_object($data['parent'])
+                || !($data['parent'] instanceof NodeInterface)
+            ) {
+                throw ValidationException::create(
+                    'Field "parent" must be an instance of NodeInterface.'
+                );
+            }
+
+            $this->setParent($data['parent']);
+        }
+
+        $this->addSubscriber($this);
+
+        if (isset($data['children'])) {
+            if (!is_array($data['children'])) {
+                throw ValidationException::create('Field "children" must be an array.');
+            }
+
+            foreach ($data['children'] as $nodeData) {
+                if (!is_array($nodeData)) {
+                    throw ValidationException::create('Field "children" must be an array of arrays.');
+                }
+
+                $nodeData['parent'] = $this;
+
+                $node = $this->createNode($nodeData, $options);
+
+                $this->addChild($node);
+            }
+        }
 
         return $this;
     }
@@ -432,10 +616,10 @@ class Node implements NodeInterface, SubscriberInterface
     {
         $options = array_replace(
             [
-                'validateMinChildren'           => true,
-                'validateMaxChildren'           => true,
-                'validateParentMandatory'       => true,
-                'validateParentMustNotBeSet'    => true
+                'validateMinChildren'               => true,
+                'validateMaxChildren'               => true,
+                'validateParentMandatory'           => true,
+                'validateParentMustNotBeSet'        => true
             ],
             $options
         );
@@ -542,10 +726,11 @@ class Node implements NodeInterface, SubscriberInterface
     {
         return [
             'validations'           => [
-                'minChildren'           => null,
-                'maxChildren'           => null,
-                'parentMandatory'       => false,
-                'parentMustNotBeSet'    => false
+                'minChildren'                   => null,
+                'maxChildren'                   => null,
+                'parentMandatory'               => false,
+                'parentMustNotBeSet'            => false,
+                'uniqueIds'                     => false
             ]
         ];
     }
@@ -592,33 +777,63 @@ class Node implements NodeInterface, SubscriberInterface
         return $this;
     }
 
+    /**
+     * Removes a subscriber.
+     *
+     * @param string $id - Subscriber ID.
+     *
+     * @return NodeInterface
+     */
+    public function removeSubscriber(string $id): NodeInterface
+    {
+        unset($this->_subscribers[$id]);
+
+        return $this;
+    }
 
     /**
      * This method is called when an event is fired.
      *
-     * @param string $id  - Event ID.
-     * @param array $data - Event Data.
+     * @param string $eventId   - Event ID.
+     * @param array  $eventData - Event Data.
      *
      * @return void
      */
-    public function handleEvent(string $id, array $data)
+    public function handleEvent(string $eventId, array $eventData)
     {
+        switch ($eventId) {
+            case self::EVENT_ADD_CHILD:
+                /** @var NodeInterface $node */
+                $node = $eventData['child'];
 
+                $this->addNode($node);
+
+                break;
+            case self::EVENT_REMOVE_CHILD:
+                /** @var NodeInterface $node */
+                $node = $eventData['child'];
+
+                $this->removeNode($node);
+
+                break;
+            default:
+                break;
+        }
     }
 
     /**
      * Fires an event. Subscribers gets notified about this event.
      *
-     * @param string $id  - Event ID.
-     * @param array $data - Event Data.
+     * @param string $eventId   - Event ID.
+     * @param array  $eventData - Event Data.
      *
      * @return void
      */
-    public function notifySubscribers(string $id, array $data)
+    public function notifySubscribers(string $eventId, array $eventData)
     {
         /** @var SubscriberInterface $subscriber */
         foreach ($this->getSubscribers() as $subscriber) {
-            $subscriber->handleEvent($id, $data);
+            $subscriber->handleEvent($eventId, $eventData);
         }
     }
 
@@ -649,5 +864,72 @@ class Node implements NodeInterface, SubscriberInterface
         ];
     }
 
+    /**
+     * Creates a node.
+     *
+     * @param array $data    - Data.
+     * @param array $options - Options.
+     *
+     * @throws ValidationException
+     *
+     * @return NodeInterface
+     */
+    public function createNode(array $data, array $options = []): NodeInterface
+    {
+        return new Node($data, $options);
+    }
 
+    /**
+     * Sets the value of field nodes.
+     *
+     * @param array $nodes - nodes.
+     *
+     * @return NodeInterface
+     */
+    protected function setNodes(array $nodes): NodeInterface
+    {
+        $this->_nodes = [];
+
+        foreach ($nodes as $node) {
+            $this->addNode($node);
+        }
+
+        return $this;
+    }
+
+    /**
+     * Adds a node to this graph.
+     *
+     * @param NodeInterface $node - Node.
+     *
+     * @return NodeInterface
+     */
+    protected function addNode(NodeInterface $node): NodeInterface
+    {
+        $this->_nodes[$node->getId()] = $node;
+
+        if ($this->getParent()) {
+            $this->getParent()->addNode($node);
+        }
+
+        return $this;
+    }
+
+    /**
+     * Removes a node.
+     *
+     * @param NodeInterface $node - Node.
+     *
+     * @return NodeInterface
+     */
+    protected function removeNode(NodeInterface $node): NodeInterface
+    {
+        unset($this->_nodes[$node->getId()]);
+
+        if ($this->getParent()) {
+            $this->getParent()->removeNode($node);
+        }
+
+        return $this;
+    }
 }
