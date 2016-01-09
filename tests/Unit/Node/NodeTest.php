@@ -25,6 +25,94 @@ use IronEdge\Component\Graphs\Test\Unit\AbstractTestCase;
  */
 class NodeTest extends AbstractTestCase
 {
+    public function test_findParents_shouldFindParentsByFilters() {
+        $node = $this->createNodeInstance(['id' => 'node1']);
+        $node2 = $this->createNodeInstance(['id' => 'node2', 'name' => 'myNode2']);
+        $node3 = $this->createNodeInstance(['id' => 'node3', 'name' => 'myNode2']);
+        $node4 = $this->createNodeInstance(['id' => 'node4', 'name' => 'myNode4']);
+
+        $node4->addParent($node3);
+        $node3->addParent($node2);
+        $node2->addParent($node);
+
+        $result = $node4->findParents(['name' => 'myNode2'], ['indexById' => true]);
+
+        $this->assertCount(2, $result);
+        $this->assertEquals($node2, $result['node2']);
+        $this->assertEquals($node3, $result['node3']);
+
+        $result = $node4->findParents(['name' => 'myNode2'], ['indexById' => false]);
+
+        $this->assertCount(2, $result);
+        $this->assertEquals($node3, $result[0]);
+        $this->assertEquals($node2, $result[1]);
+
+        $result = $node4->findParents(['id' => 'node2', 'name' => 'myNode2'], ['indexById' => false]);
+
+        $this->assertCount(1, $result);
+        $this->assertEquals($node2, $result[0]);
+
+        $result = $node4->findParents([], ['indexById' => true]);
+
+        $this->assertCount(3, $result);
+        $this->assertEquals($node, $result['node1']);
+        $this->assertEquals($node2, $result['node2']);
+        $this->assertEquals($node3, $result['node3']);
+
+        $result = $node4->findParents([], ['indexById' => true, 'returnFirstResult' => true]);
+
+        $this->assertEquals($node3, $result);
+    }
+
+    public function test_getAllParents_shouldFindAllParents()
+    {
+        $node = $this->createNodeInstance(['id' => 'node1']);
+        $node2 = $this->createNodeInstance(['id' => 'node2', 'name' => 'myNode2']);
+        $node3 = $this->createNodeInstance(['id' => 'node3', 'name' => 'myNode2']);
+        $node4 = $this->createNodeInstance(['id' => 'node4', 'name' => 'myNode4']);
+
+        $node4->addParent($node3);
+        $node3->addParent($node2);
+        $node2->addParent($node);
+
+        $parents = [
+            'node3' => $node3,
+            'node2' => $node2,
+            'node1' => $node
+        ];
+        $result = $node4->getAllParents();
+
+        $this->assertEquals(array_values($parents), $result);
+
+        $result = $node4->getAllParents(['indexById' => true]);
+
+        $this->assertEquals($parents, $result);
+    }
+
+    public function test_removeSubscriber_worksWithIdOrInstance()
+    {
+        $node = $this->createNodeInstance(['id' => 'node1']);
+        $node2 = $this->createNodeInstance(['id' => 'node2']);
+
+        $this->assertCount(1, $node->getSubscribers());
+
+        $node->addSubscriber($node2);
+
+        $this->assertCount(2, $node->getSubscribers());
+
+        $node->removeSubscriber($node2);
+
+        $this->assertCount(1, $node->getSubscribers());
+
+        $node->addSubscriber($node2);
+
+        $this->assertCount(2, $node->getSubscribers());
+
+        $node->removeSubscriber($node2->getId());
+
+        $this->assertCount(1, $node->getSubscribers());
+    }
+
     public function test_findChildren_ifNodesAreFoundThenReturnThem()
     {
         $node = $this->createExampleTree();
@@ -94,7 +182,7 @@ class NodeTest extends AbstractTestCase
         $this->assertCount(0, $node4->getNodes());
         $this->assertCount(0, $node5->getNodes());
 
-        $node3->setParent($node2);
+        $node3->addParent($node2);
 
         $this->assertCount(2, $node->getNodes());
         $this->assertEquals($node2, $node->getNode('node2'));
@@ -105,7 +193,7 @@ class NodeTest extends AbstractTestCase
         $this->assertCount(0, $node4->getNodes());
         $this->assertCount(0, $node5->getNodes());
 
-        $node2->setParent(null);
+        $node2->clearParents();
 
         $this->assertCount(0, $node->getNodes());
         $this->assertCount(1, $node2->getNodes());
@@ -114,7 +202,7 @@ class NodeTest extends AbstractTestCase
         $this->assertCount(0, $node4->getNodes());
         $this->assertCount(0, $node5->getNodes());
 
-        $node2->setParent($node);
+        $node2->addParent($node);
 
         $this->assertCount(2, $node->getNodes());
         $this->assertEquals($node2, $node->getNode('node2'));
@@ -267,17 +355,17 @@ class NodeTest extends AbstractTestCase
         ];
         $node2 = $this->createNodeInstance($data);
 
-        $node->setParent($node2);
+        $node->addParent($node2);
 
         $this->assertTrue($node2->hasChild('node1'));
 
-        $node->setParent(null);
+        $node->clearParents();
 
         $this->assertFalse($node2->hasChild('node1'));
 
         // Should not fail if called again
 
-        $node->setParent(null);
+        $node->clearParents();
 
         $this->assertFalse($node2->hasChild('node1'));
     }
@@ -298,7 +386,7 @@ class NodeTest extends AbstractTestCase
         ];
         $node2 = $this->createNodeInstance($data);
 
-        $node->setParent($node2);
+        $node->addParent($node2);
 
         $node->setValidationConfig('parentMustNotBeSet', true);
         $node->validate();
@@ -423,7 +511,7 @@ class NodeTest extends AbstractTestCase
         $node2 = $this->createCustomNodeInstance(['id' => 'node2']);
         $node3 = $this->createCustomNodeInstance(['id' => 'node3']);
 
-        $node->setParent($node3);
+        $node->addParent($node3);
         $node->addChild($node2);
 
         $this->assertEquals($node3, $node->getParent());
@@ -431,7 +519,7 @@ class NodeTest extends AbstractTestCase
 
         $node->canSupportChildren = false;
 
-        $node->setParent($node3);
+        $node->addParent($node3);
 
         $this->assertEquals($node3, $node->getParent());
 
@@ -448,7 +536,7 @@ class NodeTest extends AbstractTestCase
         $node3 = $this->createCustomNodeInstance(['id' => 'node3']);
 
         $node->addChild($node2);
-        $node->setParent($node3);
+        $node->addParent($node3);
 
         $this->assertEquals($node3, $node->getParent());
         $this->assertEquals(['node2' => $node2], $node->getChildren());
@@ -459,7 +547,7 @@ class NodeTest extends AbstractTestCase
 
         $this->assertEquals(['node2' => $node2], $node->getChildren());
 
-        $node->setParent($node3);
+        $node->addParent($node3);
     }
 
     /**

@@ -9,7 +9,9 @@
  */
 
 namespace IronEdge\Component\Graphs\Test\Integration;
+use IronEdge\Component\Graphs\Exception\ValidationException;
 use IronEdge\Component\Graphs\Export\Utils;
+use IronEdge\Component\Graphs\Node\Node;
 use IronEdge\Component\Graphs\Service;
 
 
@@ -36,6 +38,31 @@ class ServiceTest extends AbstractTestCase
         $this->cleanUp();
     }
 
+    /**
+     * @dataProvider invalidCreateDataProvider
+     */
+    public function test_create_throwExceptionIfDataIsInvalid(array $data, $exceptionMessageRegex)
+    {
+        $this->setExpectedExceptionRegExp(
+            get_class(new ValidationException()),
+            $exceptionMessageRegex
+        );
+
+        $this->createService()->create($data);
+    }
+
+    public function test_createNodeInstance_ifNoNodeInstanceIsReturnedThenThrowException()
+    {
+        $this->setExpectedExceptionRegExp(
+            get_class(new ValidationException()),
+            '/Node Factory must return an instance of NodeInterface./'
+        );
+
+        $service = $this->createService();
+        $service->setNodeFactory(function() { return new \DateTime(); });
+
+        $service->create(['id' => 'test']);
+    }
 
     public function test_export_graphviz()
     {
@@ -44,7 +71,16 @@ class ServiceTest extends AbstractTestCase
         $service = $this->createService();
         $graph = $service->create($this->getExampleGraphData());
 
-        $response = $service->export($graph, ['writer' => 'graphviz', 'path' => $this->getTmpDir().'/graphviz.png']);
+        // Add an additional parent
+        $node = new Node(['id' => 'additionalParent']);
+
+        $graph->getNode('node2')->addParent($node);
+
+        $graphvizImagePathEnv = getenv('IRONEDGE_TEST_GRAPHVIZ_PATH');
+        $graphvizImagePath = $graphvizImagePathEnv ?
+            $graphvizImagePathEnv : $this->getTmpDir().'/graphviz.png';
+
+        $response = $service->export($graph, ['writer' => 'graphviz', 'path' => $graphvizImagePath]);
 
         $this->assertTrue(is_file($response->getPath()));
     }
@@ -67,6 +103,31 @@ class ServiceTest extends AbstractTestCase
         $this->assertFalse(is_file($service->generateRandomFilePath()));
     }
 
+
+
+    // Data Providers
+
+    public function invalidCreateDataProvider()
+    {
+        return [
+            [
+                [
+                    'id'        => 'test',
+                    'children'  => 'invalidValue'
+                ],
+                '/Field \"children\" must be an array\./'
+            ],
+            [
+                [
+                    'id'        => 'test',
+                    'children'  => [
+                        'invalidValue'
+                    ]
+                ],
+                '/Field \"children\" must be an array of arrays\./'
+            ]
+        ];
+    }
 
     // Helper methods
 

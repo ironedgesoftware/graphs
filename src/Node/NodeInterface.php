@@ -108,28 +108,73 @@ interface NodeInterface extends SubscriberInterface
     /**
      * Returns the value of field _parent.
      *
+     * @param string|null $id - Parent ID.
+     *
      * @return NodeInterface|null
      */
-    public function getParent();
+    public function getParent(string $id = null);
 
     /**
-     * Returns an array of parents, and optionally this node.
-     *
-     * @param bool $includeThisNode - Include this node in the array?
+     * Returns an array of parents.
      *
      * @return array
      */
-    public function getParents($includeThisNode = false): array;
+    public function getParents(): array;
 
     /**
-     * Sets the value of field parent.
+     * Finds parents up from this node.
      *
-     * @param NodeInterface $parent - Parent.
-     * @param bool $setParentsChild - Set parent's child.
+     * @param array $filters - Filters.
+     * @param array $options - Options.
+     *
+     * @return array|NodeInterface
+     */
+    public function findParents(array $filters = [], array $options = []);
+
+    /**
+     * Returns all parents from this node.
+     *
+     * @param array $options - Options.
+     *
+     * @return array
+     */
+    public function getAllParents(array $options = []): array;
+
+    /**
+     * Returns all parents from this node plus this node.
+     *
+     * @param array $options - Options.
+     *
+     * @return array
+     */
+    public function getAllParentsAndCurrentNode(array $options = []): array;
+
+    /**
+     * Adds a parent for this node.
+     *
+     * @param NodeInterface $parent          - Parent.
+     * @param bool          $setParentsChild - Set parent's child.
      *
      * @return NodeInterface
      */
-    public function setParent(NodeInterface $parent = null, bool $setParentsChild = true): NodeInterface;
+    public function addParent(NodeInterface $parent, bool $setParentsChild = true): NodeInterface;
+
+    /**
+     * Removes a parent from this node.
+     *
+     * @param string $parentId        - Parent.
+     * @param bool   $setParentsChild - Set parent's child.
+     *
+     * @return NodeInterface
+     */
+    public function removeParent(string $parentId, bool $setParentsChild = true): NodeInterface;
+
+    /**
+     * Clears all parents of this node.
+     *
+     * @return NodeInterface
+     */
+    public function clearParents(): NodeInterface;
 
     /**
      * Returns the value of field _children.

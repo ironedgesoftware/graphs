@@ -23,6 +23,25 @@ use IronEdge\Component\Graphs\Test\Unit\AbstractTestCase;
  */
 class GraphvizWriterTest extends AbstractTestCase
 {
+    public function test_generateNodeCode_dontGenerateCodeTwiceForTheSameNode()
+    {
+        $node = new Node(['id' => 'node1']);
+        $node2 = new Node(['id' => 'node2']);
+        $node3 = new Node(['id' => 'node3']);
+
+        $node->addChild($node2);
+
+        $writer = $this->createInstance();
+        $processed = [];
+
+        $this->assertNotEmpty($writer->generateNodeCode($node, $processed));
+        $this->assertEmpty($writer->generateNodeCode($node, $processed));
+        $this->assertEmpty($writer->generateNodeCode($node2, $processed));
+        $this->assertEmpty($writer->generateNodeCode($node2, $processed));
+        $this->assertNotEmpty($writer->generateNodeCode($node3, $processed));
+        $this->assertEmpty($writer->generateNodeCode($node3, $processed));
+    }
+
     /**
      * @expectedException \IronEdge\Component\Graphs\Exception\ExportException
      */

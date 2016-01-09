@@ -122,16 +122,24 @@ class GraphvizWriter implements WriterInterface
         $graphvizCode .= '  '.$this->generateNodeAttributesCode($node).PHP_EOL.PHP_EOL;
         $graphvizCode .= '  '.$this->generateNodeRelationsCode($node).PHP_EOL.PHP_EOL;
 
+        $parents = $node->getParents();
         $children = $node->getChildren();
 
-        /** @var NodeInterface $node */
-        foreach ($children as $n) {
-            if (!isset($processedNodes[$node->getId()])) {
+        $processedNodes[$node->getId()] = true;
+
+        /** @var NodeInterface $n */
+        foreach ($parents as $n) {
+            if (!isset($processedNodes[$n->getId()])) {
                 $graphvizCode .= $this->generateNodeCode($n, $processedNodes);
             }
         }
 
-        $processedNodes[$node->getId()] = true;
+        /** @var NodeInterface $n */
+        foreach ($children as $n) {
+            if (!isset($processedNodes[$n->getId()])) {
+                $graphvizCode .= $this->generateNodeCode($n, $processedNodes);
+            }
+        }
 
         return $graphvizCode;
     }

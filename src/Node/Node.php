@@ -24,9 +24,10 @@ use IronEdge\Component\Graphs\Exception\ValidationException;
  */
 class Node implements NodeInterface
 {
-    const EVENT_ADD_CHILD               = 'add_child';
-    const EVENT_REMOVE_CHILD            = 'remove_child';
-    const EVENT_SET_PARENT              = 'set_parent';
+    const EVENT_ADD_CHILD = 'add_child';
+    const EVENT_REMOVE_CHILD = 'remove_child';
+    const EVENT_ADD_PARENT = 'add_parent';
+    const EVENT_REMOVE_PARENT = 'remove_parent';
 
 
     /**
@@ -44,11 +45,11 @@ class Node implements NodeInterface
     private $_name;
 
     /**
-     * Field _parent.
+     * Parents of this node.
      *
-     * @var NodeInterface
+     * @var array
      */
-    private $_parent;
+    private $_parents = [];
 
     /**
      * Field _children.
@@ -78,19 +79,11 @@ class Node implements NodeInterface
      */
     private $_nodes = [];
 
-    /**
-     * This factory is a callable used to instantiate nodes.
-     *
-     * @var callable
-     */
-    private $_nodeFactory;
-
-
 
     /**
      * Node constructor.
      *
-     * @param array $data    - Node's data.
+     * @param array $data - Node's data.
      * @param array $options - Options.
      */
     public function __construct(array $data = [], array $options = [])
@@ -241,73 +234,198 @@ class Node implements NodeInterface
     }
 
     /**
-     * Returns the value of field _parent.
+     * Finds parent nodes all the way up until we reach the root node.
      *
-     * @return NodeInterface|null
+     * @param array $filters - Filters.
+     * @param array $options - Options.
+     *
+     * @return array|NodeInterface
      */
-    public function getParent()
+    public function findParents(array $filters = [], array $options = [])
     {
-        return $this->_parent;
+        $options = array_replace(
+            [
+                'returnFirstResult' => false,
+                'indexById'         => false
+            ],
+            $options
+        );
+        $parents = $this->getAllParents($options);
+
+        if ($parents && $filters) {
+            $result = [];
+
+            /** @var NodeInterface $parent */
+            foreach ($parents as $i => $parent) {
+                foreach ($filters as $f => $v) {
+                    $method = 'get' . ucfirst($f);
+
+                    if (!method_exists($parent, $method) || $parent->$method() !== $v) {
+                        continue 2;
+                    }
+                }
+
+                if ($options['indexById']) {
+                    $result[$i] = $parent;
+                } else {
+                    $result[] = $parent;
+                }
+            }
+        } else {
+            $result = $parents;
+        }
+
+        return $options['returnFirstResult'] && $result ?
+            array_values($result)[0] :
+            $result;
     }
 
     /**
-     * Returns an array of parents, and optionally this node.
+     * Returns all parents from this node.
      *
-     * @param bool $includeThisNode - Include this node in the array?
+     * @param array $options - Options.
      *
      * @return array
      */
-    public function getParents($includeThisNode = false): array
+    public function getAllParents(array $options = []): array
     {
+        $options = array_replace(
+            [
+                'indexById'     => false
+            ],
+            $options
+        );
         $parents = [];
 
-        if ($includeThisNode) {
-            $parents[] = $this;
-        }
+        /** @var NodeInterface $parent */
+        foreach ($this->getParents() as $id => $parent) {
+            if ($options['indexById']) {
+                $parents[$id] = $parent;
+            } else {
+                $parents[] = $parent;
+            }
 
-        $current = $this;
-
-        while ($current = $current->getParent()) {
-            $parents[] = $current;
+            $parents = array_merge(
+                $parents,
+                $parent->getAllParents($options)
+            );
         }
 
         return $parents;
     }
 
     /**
+     * Returns all parents from this node plus this node.
+     *
+     * @param array $options - Options.
+     *
+     * @return array
+     */
+    public function getAllParentsAndCurrentNode(array $options = []): array
+    {
+        return array_merge(
+            $this->getAllParents($options),
+            [$this]
+        );
+    }
+
+    /**
+     * Returns the value of field _parent.
+     *
+     * @param string|null $id - Parent ID.
+     *
+     * @return NodeInterface|null
+     */
+    public function getParent(string $id = null)
+    {
+        if (!$this->_parents || ($id !== null && !isset($this->_parents[$id]))) {
+            return null;
+        }
+
+        return $id !== null ?
+            $this->_parents[$id] :
+            $this->_parents[array_rand($this->_parents)];
+    }
+
+    /**
+     * Returns an array of parents.
+     *
+     * @return array
+     */
+    public function getParents(): array
+    {
+        return $this->_parents;
+    }
+
+    /**
      * Sets the value of field parent.
      *
-     * @param NodeInterface $parent - Parent.
-     * @param bool $setParentsChild - Set parent's child.
+     * @param NodeInterface $parent          - Parent.
+     * @param bool          $setParentsChild - Set parent's child.
      *
      * @throws ParentTypeNotSupportedException
      *
      * @return NodeInterface
      */
-    public function setParent(NodeInterface $parent = null, bool $setParentsChild = true): NodeInterface
+    public function addParent(NodeInterface $parent, bool $setParentsChild = true): NodeInterface
     {
-        if ($parent && !$this->supportsParent($parent)) {
+        if (!$this->supportsParent($parent)) {
             throw ParentTypeNotSupportedException::create($this, $parent);
         }
 
-        $this->notifySubscribers(
-            self::EVENT_SET_PARENT,
-            ['oldParent' => $this->_parent, 'newParent' => $parent, 'child' => $this]
-        );
-
-        $oldParent = $this->_parent;
+        $this->_parents[$parent->getId()] = $parent;
 
         if ($setParentsChild) {
-            if ($oldParent) {
-                $oldParent->removeChild($this->getId(), false);
-            }
-
-            if ($parent) {
-                $parent->addChild($this, false);
-            }
+            $parent->addChild($this, false);
         }
 
-        $this->_parent = $parent;
+        $this->notifySubscribers(
+            self::EVENT_ADD_PARENT,
+            ['oldParents' => $this->_parents, 'newParent' => $parent, 'child' => $this]
+        );
+
+        return $this;
+    }
+
+    /**
+     * Removes a parent from this node.
+     *
+     * @param string $parentId        - Parent.
+     * @param bool   $setParentsChild - Set parent's child.
+     *
+     * @return NodeInterface
+     */
+    public function removeParent(string $parentId, bool $setParentsChild = true): NodeInterface
+    {
+        if (isset($this->_parents[$parentId])) {
+            $parent = $this->getParent($parentId);
+
+            $this->notifySubscribers(
+                self::EVENT_REMOVE_PARENT,
+                ['oldParents' => $this->_parents, 'parentToRemove' => $parent, 'child' => $this]
+            );
+
+            if ($setParentsChild) {
+                $parent->removeChild($this->getId(), false);
+            }
+
+            unset($this->_parents[$parentId]);
+        }
+
+        return $this;
+    }
+
+    /**
+     * Clears all parents of this node.
+     *
+     * @return NodeInterface
+     */
+    public function clearParents(): NodeInterface
+    {
+        /** @var NodeInterface $parent */
+        foreach ($this->getParents() as $parent) {
+            $this->removeParent($parent->getId());
+        }
 
         return $this;
     }
@@ -363,11 +481,11 @@ class Node implements NodeInterface
         $this->_children[$child->getId()] = $child;
 
         if ($setParent) {
-            $child->setParent($this, false);
+            $child->addParent($this, false);
         }
 
         /** @var NodeInterface $parent */
-        foreach ($this->getParents(true) as $parent) {
+        foreach ($this->getAllParentsAndCurrentNode() as $parent) {
             $child->addSubscriber($parent);
         }
 
@@ -393,7 +511,7 @@ class Node implements NodeInterface
             $child = $this->getChild($childId);
 
             if ($setParent) {
-                $child->setParent(null, false);
+                $child->removeParent($this->getId(), false);
             }
 
             unset($this->_children[$childId]);
@@ -404,7 +522,7 @@ class Node implements NodeInterface
             );
 
             /** @var NodeInterface $parent */
-            foreach ($this->getParents(true) as $parent) {
+            foreach ($this->getAllParents() as $parent) {
                 $child->removeSubscriber($parent->getId());
             }
         }
@@ -630,7 +748,7 @@ class Node implements NodeInterface
                 );
             }
 
-            $this->setParent($data['parent']);
+            $this->addParent($data['parent']);
         }
 
         if (isset($data['children'])) {
@@ -645,7 +763,7 @@ class Node implements NodeInterface
                     );
                 }
 
-                $node->setParent($this);
+                $node->addParent($this);
 
                 $this->addChild($node);
             }
@@ -879,36 +997,31 @@ class Node implements NodeInterface
                 $this->removeNode($node);
 
                 break;
-            case self::EVENT_SET_PARENT:
+            case self::EVENT_ADD_PARENT:
+                /** @var NodeInterface $child */
+                $child = $eventData['child'];
+                /** @var NodeInterface $newParent */
+                $newParent = $eventData['newParent'];
+                $nodes = $child->getNodes() + [$child];
+
+                /** @var NodeInterface $n */
+                foreach ($nodes as $n) {
+                    $n->addSubscriber($newParent);
+                    $newParent->addNode($n);
+                }
+
+                break;
+            case self::EVENT_REMOVE_PARENT:
                 /** @var NodeInterface $child */
                 $child = $eventData['child'];
                 /** @var NodeInterface $oldParent */
-                $oldParent = $eventData['oldParent'];
-                /** @var NodeInterface $newParent */
-                $newParent = $eventData['newParent'];
+                $oldParent = $eventData['parentToRemove'];
+                $nodes = $child->getNodes() + [$child];
 
-                if ($oldParent || $newParent) {
-                    if ($newParent) {
-                        $parents = $newParent->getParents(true);
-                        $subscriberMethod = 'addSubscriber';
-                        $nodeMethod = 'addNode';
-                    } else {
-                        $parents = $oldParent->getParents(true);
-                        $subscriberMethod = 'removeSubscriber';
-                        $nodeMethod = 'removeNode';
-                    }
-
-                    $nodes = $child->getNodes();
-                    $nodes[] = $child;
-
-                    /** @var NodeInterface $n */
-                    foreach ($nodes as $n) {
-                        /** @var NodeInterface $p */
-                        foreach ($parents as $p) {
-                            $n->$subscriberMethod($p);
-                            $p->$nodeMethod($n);
-                        }
-                    }
+                /** @var NodeInterface $n */
+                foreach ($nodes as $n) {
+                    $n->removeSubscriber($oldParent);
+                    $oldParent->removeNode($n);
                 }
 
                 break;
