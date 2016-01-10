@@ -10,6 +10,7 @@
 
 namespace IronEdge\Component\Graphs\Export\Writer;
 
+use IronEdge\Component\CommonUtils\System\SystemService;
 use IronEdge\Component\Config\Writer\WriterInterface;
 use IronEdge\Component\Graphs\Exception\ExportException;
 use IronEdge\Component\Graphs\Exception\ValidationException;
@@ -30,6 +31,26 @@ class GraphvizWriter implements WriterInterface
     private $_utils;
 
     /**
+     * Field _systemService.
+     *
+     * @var SystemService
+     */
+    private $_systemService;
+
+
+    /**
+     * GraphvizWriter constructor.
+     *
+     * @param Utils|null         $utils         - Graphviz Utils.
+     * @param SystemService|null $systemService - System Service.
+     */
+    public function __construct(Utils $utils = null, SystemService $systemService = null)
+    {
+        $this->setUtils($utils);
+        $this->setSystemService($systemService);
+    }
+
+    /**
      * Returns the value of field _utils.
      *
      * @return Utils
@@ -37,7 +58,7 @@ class GraphvizWriter implements WriterInterface
     public function getUtils(): Utils
     {
         if ($this->_utils === null) {
-            $this->_utils = new Utils();
+            $this->_utils = new Utils($this->getSystemService());
         }
 
         return $this->_utils;
@@ -48,11 +69,39 @@ class GraphvizWriter implements WriterInterface
      *
      * @param Utils $utils - utils.
      *
-     * @return $this
+     * @return self
      */
-    public function setUtils($utils): GraphvizWriter
+    public function setUtils($utils = null): self
     {
         $this->_utils = $utils;
+
+        return $this;
+    }
+
+    /**
+     * Returns the instance of the system service.
+     *
+     * @return SystemService
+     */
+    public function getSystemService()
+    {
+        if ($this->_systemService === null) {
+            $this->_systemService = new SystemService();
+        }
+
+        return $this->_systemService;
+    }
+
+    /**
+     * Sets the system service instance.
+     *
+     * @param SystemService $systemService - System service.
+     *
+     * @return self
+     */
+    public function setSystemService($systemService = null): self
+    {
+        $this->_systemService = $systemService;
 
         return $this;
     }
@@ -64,6 +113,7 @@ class GraphvizWriter implements WriterInterface
      * @param array $options - Options.
      *
      * @throws ValidationException
+     * @throws ExportException
      *
      * @return void
      */
@@ -200,7 +250,7 @@ class GraphvizWriter implements WriterInterface
      *
      * @param string $graphvizCode    - Graphviz code.
      * @param string $targetFile      - Target file.
-     * @param array  $garphvizOptions - Graphviz options.
+     * @param array  $graphvizOptions - Graphviz options.
      *
      * @throws ExportException
      *
@@ -233,7 +283,7 @@ class GraphvizWriter implements WriterInterface
             );
         }
 
-        // $this->removeFile($tmpFile);
+        $this->removeFile($tmpFile);
 
         return $this;
     }
@@ -247,9 +297,7 @@ class GraphvizWriter implements WriterInterface
      */
     protected function removeFile(string $file): GraphvizWriter
     {
-        if (is_file($file)) {
-            @unlink($file);
-        }
+        $this->getSystemService()->rm($file);
 
         return $this;
     }

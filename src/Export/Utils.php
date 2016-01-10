@@ -34,7 +34,7 @@ class Utils
      */
     public function __construct(SystemService $systemService = null)
     {
-        $this->setSystemService($systemService ? $systemService : new SystemService());
+        $this->setSystemService($systemService);
     }
 
     /**
@@ -44,6 +44,10 @@ class Utils
      */
     public function getSystemService(): SystemService
     {
+        if ($this->_systemService === null) {
+            $this->_systemService = new SystemService();
+        }
+
         return $this->_systemService;
     }
 
@@ -52,9 +56,9 @@ class Utils
      *
      * @param SystemService $systemService - systemService.
      *
-     * @return Utils
+     * @return self
      */
-    public function setSystemService(SystemService $systemService): Utils
+    public function setSystemService(SystemService $systemService = null): self
     {
         $this->_systemService = $systemService;
 
