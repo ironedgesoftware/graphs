@@ -31,18 +31,25 @@ class Node implements NodeInterface
 
 
     /**
-     * Field _id.
+     * Node ID.
      *
      * @var string
      */
     private $_id;
 
     /**
-     * Field _name.
+     * Node Name.
      *
      * @var string
      */
     private $_name;
+
+    /**
+     * Node Type.
+     *
+     * @var string
+     */
+    private $_type = 'node';
 
     /**
      * Parents of this node.
@@ -140,6 +147,30 @@ class Node implements NodeInterface
     public function setName(string $name)
     {
         $this->_name = $name;
+
+        return $this;
+    }
+
+    /**
+     * Getter method for field _type.
+     *
+     * @return string
+     */
+    public function getType(): string
+    {
+        return $this->_type;
+    }
+
+    /**
+     * Setter method for field type.
+     *
+     * @param string $type - type.
+     *
+     * @return Node
+     */
+    public function setType(string $type)
+    {
+        $this->_type = $type;
 
         return $this;
     }
@@ -719,6 +750,12 @@ class Node implements NodeInterface
             throw ValidationException::create('Field "id" must be a non-empty string.');
         }
 
+        if (!preg_match('/^[0-9a-z\_]+$/i', $data['id'])) {
+            throw ValidationException::create(
+                'Field "id" must have only characters 0-9, a-z, A-Z or "_". Received: '.$data['id']
+            );
+        }
+
         $this->setId($data['id']);
 
         $this->addSubscriber($this);
@@ -1065,6 +1102,7 @@ class Node implements NodeInterface
         return [
             'id'                => $this->getId(),
             'name'              => $this->getName(),
+            'type'              => $this->getType(),
             'metadata'          => $this->getMetadata()->getData(),
             'parentId'          => $this->getParent() ?
                 $this->getParent()->getId() :

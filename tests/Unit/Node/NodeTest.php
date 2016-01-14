@@ -611,6 +611,7 @@ class NodeTest extends AbstractTestCase
         $data = [
             'id'            => 'someId',
             'name'          => 'someName',
+            'type'          => 'node',
             'metadata'      => [
                 'additionalAttr'        => 'additionalValue'
             ]
@@ -619,6 +620,7 @@ class NodeTest extends AbstractTestCase
         $data2 = [
             'id'            => 'otherNode',
             'name'          => 'someOtherName',
+            'type'          => 'node',
             'metadata'      => [
                 'otherAdditionalAttr'        => 'otherAdditionalValue'
             ]
@@ -718,6 +720,13 @@ class NodeTest extends AbstractTestCase
                 ],
                 $validationExceptionClass,
                 '/Field \"parent\" must be an instance of NodeInterface/'
+            ],
+            [
+                [
+                    'id'            => 'node 111'
+                ],
+                $validationExceptionClass,
+                '/Field \"id\" must have only characters 0-9, a-z, A-Z or \"\_\"\./'
             ]
         ];
     }
