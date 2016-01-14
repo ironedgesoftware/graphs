@@ -727,6 +727,15 @@ class NodeTest extends AbstractTestCase
                 ],
                 $validationExceptionClass,
                 '/Field \"id\" must have only characters 0-9, a-z, A-Z or \"\_\"\./'
+            ],
+            [
+                [
+                    'id'            => 'node111',
+                    'name'          => 'myNode',
+                    'type'          => 'invalid type'
+                ],
+                $validationExceptionClass,
+                '/Field \"type\" must have only characters 0-9, a-z, A-Z or \"\_\"\./'
             ]
         ];
     }

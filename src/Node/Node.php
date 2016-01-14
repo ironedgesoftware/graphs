@@ -770,6 +770,19 @@ class Node implements NodeInterface
             $this->setName($data['name']);
         }
 
+        if (isset($data['type'])) {
+            if (!is_string($data['type']) || $data['type'] === '') {
+                throw ValidationException::create('Field "type" must be a non-empty string.');
+            }
+
+            if (!preg_match('/^[0-9a-z\_]+$/i', $data['type'])) {
+                throw ValidationException::create(
+                    'Field "type" must have only characters 0-9, a-z, A-Z or "_". Received: '.$data['type']
+                );
+            }
+        }
+
+
         if (isset($data['metadata'])) {
             if (!is_array($data['metadata'])) {
                 throw ValidationException::create('Field "metadata" must be an array.');
