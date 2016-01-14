@@ -780,6 +780,8 @@ class Node implements NodeInterface
                     'Field "type" must have only characters 0-9, a-z, A-Z or "_". Received: '.$data['type']
                 );
             }
+
+            $this->setType($data['type']);
         }
 
 
