@@ -24,10 +24,12 @@ use IronEdge\Component\Graphs\Exception\ValidationException;
  */
 class Node implements NodeInterface
 {
-    const EVENT_ADD_CHILD = 'add_child';
-    const EVENT_REMOVE_CHILD = 'remove_child';
-    const EVENT_ADD_PARENT = 'add_parent';
-    const EVENT_REMOVE_PARENT = 'remove_parent';
+    const TYPE                  = 'node';
+
+    const EVENT_ADD_CHILD       = 'add_child';
+    const EVENT_REMOVE_CHILD    = 'remove_child';
+    const EVENT_ADD_PARENT      = 'add_parent';
+    const EVENT_REMOVE_PARENT   = 'remove_parent';
 
 
     /**
@@ -49,7 +51,7 @@ class Node implements NodeInterface
      *
      * @var string
      */
-    private $_type = 'node';
+    private $_type = self::TYPE;
 
     /**
      * Parents of this node.
