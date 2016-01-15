@@ -12,6 +12,7 @@ namespace IronEdge\Component\Graphs;
 
 use IronEdge\Component\Config\Config;
 use IronEdge\Component\Graphs\Exception\InvalidWriterTypeException;
+use IronEdge\Component\Graphs\Exception\NodeDoesNotExistException;
 use IronEdge\Component\Graphs\Exception\ValidationException;
 use IronEdge\Component\Graphs\Export\Response;
 use IronEdge\Component\Graphs\Export\Writer\GraphvizWriter;
@@ -30,6 +31,13 @@ class Service
      * @var callable
      */
     private $_nodeFactory;
+
+    /**
+     * Node Registry.
+     *
+     * @var array
+     */
+    private $_nodeRegistry = [];
 
 
     /**
@@ -52,6 +60,36 @@ class Service
     }
 
     /**
+     * Returns node with ID $id.
+     *
+     * @param string $id - Node ID.
+     *
+     * @throws NodeDoesNotExistException
+     *
+     * @return NodeInterface
+     */
+    public function getNode(string $id): NodeInterface
+    {
+        if (!$this->hasNode($id)) {
+            throw NodeDoesNotExistException::create($id);
+        }
+
+        return $this->_nodeRegistry[$id];
+    }
+
+    /**
+     * Returns true if this service has a node with ID $id.
+     *
+     * @param string $id - Node ID.
+     *
+     * @return bool
+     */
+    public function hasNode(string $id): bool
+    {
+        return isset($this->_nodeRegistry[$id]);
+    }
+
+    /**
      * Creates a node tree.
      *
      * @param array $data    - Node data.
@@ -63,10 +101,25 @@ class Service
      */
     public function create(array $data, array $options = [])
     {
+        if (isset($data['id']) && $this->hasNode($data['id'])) {
+            return $this->getNode($data['id']);
+        }
+
+        $options = array_replace_recursive(
+            [
+                'addParentsAndChildren'     => true
+            ],
+            $options
+        );
+
+        $bkp = $data;
+
         if (isset($data['children'])) {
             if (!is_array($data['children'])) {
                 throw ValidationException::create('Field "children" must be an array.');
             }
+
+            $data['childrenIds'] = [];
 
             foreach ($data['children'] as $i => $nodeData) {
                 if (!is_array($nodeData)) {
@@ -75,11 +128,111 @@ class Service
                     );
                 }
 
-                $data['children'][$i] = $this->create($nodeData, $options);
+                $node = $this->create($nodeData, array_merge($options, ['addParentsAndChildren' => false]));
+
+                $data['childrenIds'][] = $node->getId();
             }
+
+            unset($data['children']);
         }
 
-        return $this->createNodeInstance($data, $options);
+        if (isset($data['parents'])) {
+            if (!is_array($data['parents'])) {
+                throw ValidationException::create('Field "parents" must be an array.');
+            }
+
+            $data['parentsIds'] = [];
+
+            foreach ($data['parents'] as $i => $nodeData) {
+                if (!is_array($nodeData)) {
+                    throw ValidationException::create(
+                        'Field "parents" must be an array of arrays.'
+                    );
+                }
+
+                $node = $this->create($nodeData, array_merge($options, ['addParentsAndChildren' => false]));
+
+                $data['parentsIds'][] = $node->getId();
+            }
+
+            unset($data['parents']);
+        }
+
+        $node = $this->createNodeInstance($data, $options);
+
+        if ($options['addParentsAndChildren']) {
+            $func = function(array $data) use (&$func) {
+                if (isset($data['children'])) {
+                    foreach ($data['children'] as $nodeData) {
+                        $this->getNode($data['id'])->addChild($this->getNode($nodeData['id']));
+
+                        $func($nodeData);
+                    }
+                }
+
+                if (isset($data['parents'])) {
+                    foreach ($data['parents'] as $nodeData) {
+                        $this->getNode($data['id'])->addParent($this->getNode($nodeData['id']));
+
+                        $func($nodeData);
+                    }
+                }
+
+                if (isset($data['childrenIds'])) {
+                    if (!is_array($data['childrenIds'])) {
+                        throw ValidationException::create('Field "childrenIds" must be an array.');
+                    }
+
+                    foreach ($data['childrenIds'] as $id) {
+                        $this->getNode($data['id'])->addChild($this->getNode($id));
+                    }
+                }
+
+                if (isset($data['parentIds'])) {
+                    if (!is_array($data['parentIds'])) {
+                        throw ValidationException::create('Field "parentIds" must be an array.');
+                    }
+
+                    foreach ($data['parentIds'] as $id) {
+                        $this->getNode($data['id'])->addParent($this->getNode($id));
+                    }
+                }
+            };
+
+            $func($bkp);
+        }
+
+        return $node;
+    }
+
+    /**
+     * Imports a graph from a source. We use the ironedge/config component
+     * to read the data from a ReaderInterface, and then we use the obtained array
+     * to call this service's "create" method to create the graph.
+     *
+     * @param string $readerType    - Reader Type.
+     * @param array  $readerOptions - Reader options.
+     *
+     * @throws ValidationException
+     * @throws \IronEdge\Component\Config\Exception\ImportException
+     * @throws \IronEdge\Component\Config\Exception\InvalidOptionTypeException
+     *
+     * @return NodeInterface
+     */
+    public function import(string $readerType, array $readerOptions = []): NodeInterface
+    {
+        $options = [
+            'reader'            => $readerType,
+            'loadOptions'       => [
+                'processImports'    => true,
+                'readerOptions'     => $readerOptions
+            ]
+        ];
+        $config = new Config([], $options);
+
+        $config->load();
+
+        return $this->create($config->getData());
     }
 
     /**
@@ -195,6 +348,8 @@ class Service
                 'Node Factory must return an instance of NodeInterface.'
             );
         }
+
+        $this->_nodeRegistry[$node->getId()] = $node;
 
         return $node;
     }

@@ -324,14 +324,22 @@ class Node implements NodeInterface
     {
         $options = array_replace(
             [
-                'indexById'     => false
+                'indexById'     => false,
+                'skipIds'       => []
             ],
             $options
         );
         $parents = [];
+        $ids = [$this->getId()];
 
         /** @var NodeInterface $parent */
         foreach ($this->getParents() as $id => $parent) {
+            if (in_array($id, $options['skipIds'])) {
+                continue;
+            }
+
+            $ids[] = $id;
+
             if ($options['indexById']) {
                 $parents[$id] = $parent;
             } else {
@@ -340,7 +348,7 @@ class Node implements NodeInterface
 
             $parents = array_merge(
                 $parents,
-                $parent->getAllParents($options)
+                $parent->getAllParents(array_merge($options, ['skipIds' => $ids]))
             );
         }
 
